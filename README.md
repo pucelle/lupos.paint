@@ -8,9 +8,11 @@
 1. Defines a component:
 
 ```ts
-class Lines {
+class Lines extends PaintComponent {
 	x: number
 	y: number
+	width: number
+	height: number
 	render() {...}
 }
 ```
@@ -22,6 +24,22 @@ return paint`
 	<line .x1=${this.x} .y1=${this.y} .x2=${...} .y2=${...} />
 	<rect .x=${this.x} .y=${this.y} .width=${this.width} .height=${this.height}	/>
 `
+```
+
+3. Initialize a renderer, and insert to body.
+
+```ts
+let paper = new PaintPaper()
+paper.append(new Lines())
+
+let renderer = new SVGRenderer({
+	width: 800,
+	height: 800,
+	pixelRatio: 1,
+})
+
+paper.mainRenderer = renderer
+renderer.appendTo(document.body)
 ```
 
 
