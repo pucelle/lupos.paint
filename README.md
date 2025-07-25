@@ -21,8 +21,18 @@ class Lines extends PaintComponent {
 
 ```html
 return paint`
-	<line .x1=${this.x} .y1=${this.y} .x2=${...} .y2=${...} />
-	<rect .x=${this.x} .y=${this.y} .width=${this.width} .height=${this.height}	/>
+	<line
+		.x1=${this.x}
+		.y1=${this.y}
+		.x2=${...}
+		.y2=${...}
+	/>
+	<rect
+		.x=${this.x}
+		.y=${this.y}
+		.width=${this.width}
+		.height=${this.height}
+	/>
 `
 ```
 
