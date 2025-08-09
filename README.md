@@ -1,6 +1,6 @@
 # lupos.paint - still under design
 
-**lupos.paint** is a component-based 2d paint system, it provides easy way to build large, scalable, interactive SVG / canvas / WebGL / WebGPU apps, like mind map, flow diagram.
+**lupos.paint** is a component-based 2d paint system, it provides easy way to build large, scalable, interactive SVG / canvas / WebGL / WebGPU apps, like mind map, flow diagram, figma like, web version of photoshop or after effects.
 
 
 ## How to use
@@ -57,8 +57,8 @@ renderer.appendTo(document.body)
 
 Your project must be built by `luc` command of [lupos](https://github.com/pucelle/lupos), it's a wrapper for typescript, and provides:
 
-- **Data change tracking**: **lupos** will analysis which object should be tracked and then add statements besides like `trackGet` and `trackSet`.
-- **Template compiling**: **lupos** will compile `paint` template to vanilla codes, and hoist codes to optimize.
+- **Data change tracking**: analysis which object should be tracked and then add statements besides like `trackGet` and `trackSet`.
+- **Template compiling**: compile `paint` template to vanilla codes, and hoist partial codes to optimize.
 
 
 
@@ -67,6 +67,9 @@ Your project must be built by `luc` command of [lupos](https://github.com/pucell
 **lupos.paint** plans to support **SVG**, **Canvas**, **WebGL**, **WebGPU** renderers.
 
 **SVG** renderer will be supported firstly, then **Canvas** renderer.
+
+**WebGL**, **WebGPU** renderers supports special effect rendering.
+
 
 
 ## License
