@@ -68,7 +68,7 @@ Your project must be built by `luc` command of [lupos](https://github.com/pucell
 
 **SVG** renderer will be supported firstly, then **Canvas** renderer.
 
-**WebGL**, **WebGPU** renderers supports special effect rendering.
+Only **WebGL**, **WebGPU** renderers support effect rendering.
 
 
 
