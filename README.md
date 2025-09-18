@@ -5,7 +5,7 @@
 - Mind Map
 - Flow Diagram
 - Poster
-- Video effects
+- Video Effects
 - Figma like
 - Photoshop or After Effects
 
