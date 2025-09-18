@@ -1,74 +1,99 @@
 # lupos.paint - still under design
 
-**lupos.paint** is a component-based 2d paint system, it provides easy way to build large, scalable, interactive SVG / canvas / WebGL / WebGPU apps, like mind map, flow diagram, figma like, web version of photoshop or after effects.
+**lupos.paint** is a component-based 2d paint system, it provides easy way to build scalable, rich-interactive SVG / canvas / WebGL / WebGPU apps, like:
+
+- Mind Map
+- Flow Diagram
+- Poster
+- Video effects
+- Figma like
+- Photoshop or After Effects
+
+**lupos.paint** works at higher level than normal paint library, but it has nearly the same performance as normal paint libraries benefit by **lupos**.
+
+With it, your daily work is declaring components, decides which child components to includes and their properties.
 
 
-## How to use
+## Core features
 
-1. Defines a component:
+- High Performance benefit by **lupos**. In fact it normally has better performance for larger apps because of FrameBuffer-Reusing, Partial-Rendering and other Optimizations.
+- Auto Data Change Observing benefit by **lupos**, simpler codes than all other paint libraries
+- Easy to Use, developers have no need to know Graphic Algorithms well (but better to know)
+- Auto Resource Management, especially for texture or frame buffer in WebGL / WebGPU
+- Powerful Geometry Core, make it possible to implement complex geometry features like Path Transition
+- Transition System, imagine in a mindmap app, expanding a node like a branch grows
+- Shader-Based Effects (only for WebGL / WebGPU renderers).
+
+
+## Some code samples
+
+### 1. Mindmap:
 
 ```ts
-class Lines extends PaintComponent {
-	x: number
-	y: number
-	width: number
-	height: number
-	render() {...}
+class MindMap extends PaintComponent {
+	data: MindMapData
+	render() {
+		return paint`
+			<MindMapRoot .data=${this.data.root} />
+			<MindMapFloats .data=${this.data.floats} />
+		`
+	}
+}
+
+class MindMapRoot extends PaintComponent {
+	data: MindMapRootData
+	render() {
+		return paint`
+			<MindMapLayout .name=${data.layoutName}>
+				<lu:for ${this.data.children} />${item => paint`
+					<MindMapMain .data=${item} />
+				`}</>
+			</>
+		`
+	}
+}
+
+class MindMapMain ...
+
+class MindMapApp {
+	data: MindMapData
+	render() {
+		return paint`
+			<Camera2D>
+				<MindMap .data=${data} />
+			</>
+			...
+		`
+	}
 }
 ```
 
-2. Then modify `render` method, returns a template to render a line and a rect:
 
-```html
-return paint`
-	<line
-		.x1=${this.x}
-		.y1=${this.y}
-		.x2=${...}
-		.y2=${...}
-	/>
-	<rect
-		.x=${this.x}
-		.y=${this.y}
-		.width=${this.width}
-		.height=${this.height}
-	/>
-`
-```
-
-3. Initialize a renderer, and insert to body.
+### 2. Flow Diagram:
 
 ```ts
-let paper = new PaintPaper()
-paper.append(new Lines())
+class FlowDiagram extends PaintComponent {
+	data: FlowDiagramData
+	render() {
+		return paint`
+			<FlowDiagramNodes .data=${this.data.nodes} />
+			<FlowDiagramConnections .data=${this.data.connections} />
+		`
+	}
+}
 
-let renderer = new SVGRenderer({
-	width: 800,
-	height: 800,
-	pixelRatio: 1,
-})
-
-paper.mainRenderer = renderer
-renderer.appendTo(document.body)
+class FlowDiagramApp {
+	data: FlowDiagramData
+	render() {
+		return paint`
+			<Camera2D>
+				<FlowDiagram .data=${data} />
+			</>
+			...
+		`
+	}
+}
 ```
-
-
-## Build by **lupos**
-
-Your project must be built by `luc` command of [lupos](https://github.com/pucelle/lupos), it's a wrapper for typescript, and provides:
-
-- **Data change tracking**: analysis which object should be tracked and then add statements besides like `trackGet` and `trackSet`.
-- **Template compiling**: compile `paint` template to vanilla codes, and hoist partial codes to optimize.
-
-
-
-## Renders
-
-**lupos.paint** plans to support **SVG**, **Canvas**, **WebGL**, **WebGPU** renderers.
-
-**SVG** renderer will be supported firstly, then **Canvas** renderer.
-
-Only **WebGL**, **WebGPU** renderers support effect rendering.
 
 
 
