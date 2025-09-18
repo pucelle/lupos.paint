@@ -1,4 +1,4 @@
-# lupos.paint - still under design
+# lupos.paint - in development
 
 **lupos.paint** is a component-based 2d paint system, it provides easy way to build scalable, rich-interactive SVG / Canvas / WebGL / WebGPU apps, like:
 
