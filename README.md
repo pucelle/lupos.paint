@@ -1,6 +1,6 @@
 # lupos.paint - still under design
 
-**lupos.paint** is a component-based 2d paint system, it provides easy way to build scalable, rich-interactive SVG / canvas / WebGL / WebGPU apps, like:
+**lupos.paint** is a component-based 2d paint system, it provides easy way to build scalable, rich-interactive SVG / Canvas / WebGL / WebGPU apps, like:
 
 - Mind Map
 - Flow Diagram
@@ -9,9 +9,7 @@
 - Figma like
 - Photoshop or After Effects
 
-**lupos.paint** works at higher level than normal paint library, but it has nearly the same performance as normal paint libraries benefit by **lupos**.
-
-With it, your daily work is declaring components, decides which child components to includes and their properties.
+**lupos.paint** works at higher level than normal paint library, with it, your daily work is declaring components, decides which child components to include and assigns properties to them.
 
 
 ## Core features
