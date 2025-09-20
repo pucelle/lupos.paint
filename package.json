@@ -1,0 +1,28 @@
+{
+	"name": "lupos.paint",
+	"version": "0.1.0",
+	"description": "Component-based 2d paint system, it provides easy way to build scalable, rich-interactive SVG / Canvas / WebGL / WebGPU apps",
+	"author": "pucelle",
+	"homepage": "https://github.com/pucelle/lupos.paint",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/pucelle/lupos.paint.git"
+	},
+	"main": "out/index.js",
+	"scripts": {
+		"build": "luc -e",
+		"watch": "luc -e -w",
+		"start": "webpack serve"
+	},
+	"dependencies": {
+		"@pucelle/ff": "^2.0.0",
+		"@pucelle/lupos": "^0.1.0",
+		"typescript": "^5.8.3"
+	},
+	"devDependencies": {
+		"fork-ts-checker-webpack-plugin": "^5.0.5",
+		"webpack": "^5.100.1",
+		"webpack-cli": "^6.0.1",
+		"webpack-dev-server": "^5.2.1"
+	}
+}
