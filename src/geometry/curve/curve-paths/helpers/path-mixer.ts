@@ -3,9 +3,9 @@ import {CubicBezierCurve} from '../../curves'
 
 
 /** 
- * Mix two paths to generate a new path.
- * Only transition points pair simply.
- * For a more complex transition,
+ * Mix two curve paths to generate a new curve path.
+ * It only transitions matched point pair simply.
+ * For a more complex mixing,
  * should generate a dominate transform matrix by least square method.
  */
 export class CurvePathMixer {

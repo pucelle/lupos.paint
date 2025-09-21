@@ -7,7 +7,7 @@ export interface SVGPathDItem {
 }
 
 
-/** Parse a SVG Path "d" attribute. */
+/** Parse a SVG path "d" attribute. */
 export function *parseSVGPathD(d: string): Iterable<SVGPathDItem> {
 	let re = /[a-zA-Z]|-?\d+(?:\.\d+)?/g
 	let match: RegExpExecArray | null = null
@@ -35,7 +35,7 @@ export function *parseSVGPathD(d: string): Iterable<SVGPathDItem> {
 
 
 
-/** Make svg <path> "d" property. */
+/** Make svg <path> "d" attribute. */
 export function makeSVGPathD(curveData: Readonly<CurveData[]>): string {
 	let d: string = ''
 
