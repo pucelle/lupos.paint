@@ -1,6 +1,6 @@
 # lupos.paint - in development
 
-**lupos.paint** is a component-based 2d paint system, it provides easy way to build scalable, rich-interactive SVG / Canvas / WebGL / WebGPU apps, like:
+**lupos.paint** is a component-based 2d paint system, it provides easy way to build scalable, efficient, rich-interactive SVG / Canvas / WebGL / WebGPU apps, like:
 
 - Mind Map
 - Flow Diagram
@@ -14,13 +14,13 @@
 
 ## Core features
 
-- High Performance benefit by **lupos**. In fact it normally has better performance for larger apps because of FrameBuffer-Reusing, Partial-Rendering and other Optimizations.
+- High Performance benefit by **lupos**. In fact it normally has better performance for larger apps because of FrameBuffer-Reusing, Partial-Rendering and other Optimizations
 - Auto Data Change Observing benefit by **lupos**, simpler codes than all other paint libraries
 - Easy to Use, developers have no need to know Graphic Algorithms well (but better to know)
 - Auto Resource Management, especially for texture or frame buffer in WebGL / WebGPU
 - Powerful Geometry Core, make it possible to implement complex geometry features like Path Transition
 - Transition System, imagine in a mindmap app, expanding a node like a branch grows
-- Shader-Based Effects (only for WebGL / WebGPU renderers).
+- Shader-Based Effects (only for WebGL / WebGPU renderers)
 
 
 ## Some code samples
