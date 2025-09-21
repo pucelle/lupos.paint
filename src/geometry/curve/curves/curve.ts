@@ -1,0 +1,482 @@
+import {Box, Matrix, Point, Vector, IntegralLookup, NumberUtils, ListUtils} from '@pucelle/ff'
+import {CurveData} from '../types'
+import {CubicBezierCurve} from './cubic-bezier'
+
+
+// Reference to:
+// https://github.com/mrdoob/three.js/blob/dev/src/extras/core/Curve.js
+
+
+/** Abstract class of all the curves, even line. */
+export abstract class Curve {
+
+	/** 
+	 * Default division count.
+	 * This value is used to make an equivalent-t sampling,
+	 * It affects the precision of equal-length or equal-curvature division.
+	 * The default value `12` come from source codes of three.js, it fit for division of a 25px circle.
+	 */
+	lengthDivisions: number = 12
+
+	/** Curve start point. */
+	readonly startPoint: Readonly<Point>
+
+	/** Curve end point. */
+	readonly endPoint: Readonly<Point>
+
+	/** 
+	 * Cached accumulate curve lengths.
+	 * List length is `lengthDivisions`, start value is not 0.
+	 */
+	protected cachedLengths: number[] | null = null
+
+	/** Cached points got from `getPoints`. */
+	protected cachedPoints: Readonly<Point>[] | null = null
+
+	/** Cached bounding box. */
+	protected cachedBox: Readonly<Box> | null = null
+
+	constructor(startPoint: Point, endPoint: Point) {
+		this.startPoint = startPoint
+		this.endPoint = endPoint
+	}
+
+	/**
+	 * Get an accumulated arc length list.
+	 * The got list length is `lengthDivisions` and is cacheable.
+	 */
+	getLengths(divisions: number = this.lengthDivisions): number[] {
+		if (this.cachedLengths?.length === divisions) {
+			return this.cachedLengths
+		}
+
+		let lengths: number[] = []
+		let points = this.getPoints(divisions)
+		let currentLength = 0
+		let lastPoint = this.startPoint
+
+		for (let d = 1; d <= divisions; d++) {
+			let point = points[d]
+
+			// For a low count of division, sampling `ds/dt` can gain better result.
+			currentLength += point.distanceTo(lastPoint)
+
+			lengths.push(currentLength)
+			lastPoint = point
+		}
+
+		if (divisions === this.lengthDivisions) {
+			this.cachedLengths = lengths
+		}
+
+		return lengths
+	}
+
+	/** 
+	 * Get total curve arc length.
+	 * This is not a accurate result, but normally no hurt,
+	 * normally at most (π - sin(π / 12) * 12) / π = 1.1% difference.
+	 */
+	getLength(): number {
+		let lengths = this.getLengths()
+		return lengths[lengths.length - 1]
+	}
+
+	/** Map arc length rate parameter `u` to generating parameter `t`. */
+	mapU2T(u: number): number {
+		return IntegralLookup.locateIntegralX(u, this.getLengths())
+	}
+
+	/** Map generating parameter `t` to arc length rate parameter `u`. */
+	mapT2U(t: number): number {
+		return IntegralLookup.locateIntegralY(t, this.getLengths()) / this.getLength()
+	}
+		
+	/** Get point at arc length percentage, `u` betweens 0~1. */
+	spacedPointAt(u: number): Point {
+		return this.pointAt(this.mapU2T(u))
+	}
+
+	/** Get generating parameter `t` at specified arc length. */
+	tAtLength(length: number): number {
+		let totalLength = this.getLength()
+		let u = length / totalLength
+
+		return this.mapU2T(u)
+	}
+	
+	/** Get point at specified arc length. */
+	pointAtLength(length: number): Point {
+		let totalLength = this.getLength()
+		let u = length / totalLength
+
+		return this.spacedPointAt(u)
+	}
+
+	/** 
+	 * Get tangent vector by generating parameter `t`.
+	 * The returned vector length also represent the changing speed of curve point based on t.
+	 * This is a approximate method, better ways need doing `dL/dt`. 
+	 */
+	tangentAt(t: number): Vector {
+		let point1 = this.pointAt(t)
+		let point2 = this.pointAt(t + 0.001)
+
+		return Vector.fromDiff(point2, point1).multiplyScalarSelf(1000)
+	}
+
+	/** 
+	 * Get unit normal vector by generating parameter `t`.
+	 * Normal vector direction is always equals tangent vector rotate 90° clockwise.
+	 */
+	normalAt(t: number, clockwiseFlag = true): Vector {
+		let tangent = this.tangentAt(t)
+		return tangent.rotateInDegreeSelf(clockwiseFlag ? -90 : 90).normalizeSelf()
+	}
+
+	/** Get curvature, which means `1 / Curvature Radius`. */
+	curvatureAt(t: number): number {
+		let point1 = this.pointAt(t - 0.001)
+		let point2 = this.pointAt(t)
+		let point3 = this.pointAt(t + 0.001)
+
+		// Solution 1:
+		// Curvature C = 1 / R
+		// Curvature Radius R = ds / dθ
+		// C = dθ / ds
+
+		// let v1 = point2.diff(point1)
+		// let v2 = point3.diff(point2)
+		// let v1Length = v1.getLength()
+		// let v2Length = v2.getLength()
+		// let ds = v1Length
+		// let dSita = Math.acos(v1.dot(v2) / (v1Length * v2Length))
+		// return dSita / ds
+
+		// Solution 2:
+		// C = |x'y'' - x''y'| / (x'^2 + y'^2)^1.5
+		// x' = (x(t+Δt) - x(t)) / Δt
+		// x'' = (x(t+2Δt) + x(t) - 2*x(t+Δt)) / Δt^2
+		// ...
+
+		let xd1 = (point3.x - point2.x) * 1000
+		let xd2 = (point3.x + point1.x - point2.x * 2) * 1000000
+		let yd1 = (point3.y - point2.y) * 1000
+		let yd2 = (point3.y + point1.y - point2.y * 2) * 1000000
+
+		return Math.abs(xd1 * yd2 - xd2 * yd1) / Math.pow(xd1 * xd1 + yd1 * yd1, 1.5)
+	}
+
+	/** 
+	 * Get a sequence of points based on divisions of equal-distanced `t`.
+	 * Length of returned list is `divisions + 1`, and is cacheable.
+	 * For cubic bezier, the equal-t division has a little like equal-curvature division,
+	 * The more curvature, the shorter of the segment.
+	 */
+	getPoints(divisions: number = this.lengthDivisions): Readonly<Point>[] {
+		if (this.cachedPoints && this.cachedPoints.length === divisions + 1) {
+			return this.cachedPoints
+		}
+
+		let points: Point[] = [this.startPoint]
+		
+		for (let d = 1; d <= divisions; d++) {
+			let t = d / divisions
+			points.push(this.pointAt(t))
+		}
+
+		if (divisions === this.lengthDivisions) {
+			this.cachedPoints = points
+		}
+
+		return points
+	}
+
+	/** 
+	 * Get a sequence of points based on divisions of equal-distanced arc length rate `u`.
+	 * Length of returned list is `divisions + 1`.
+	 */
+	getSpacedPoints(divisions?: number): Readonly<Point>[] {
+		let points: Point[] = [this.startPoint]
+		let ts = this.getSpacedTs(divisions)
+
+		for (let i = 1; i < ts.length; i++) {
+			let t = ts[i]
+			points.push(this.pointAt(t))
+		}
+
+		return points
+	}
+
+	/** 
+	 * Get a sequence of generating parameter t based on divisions of equal-distanced arc length rate `u`.
+	 * Length of returned list is `divisions + 1`.
+	 */
+	getSpacedTs(divisions: number = this.lengthDivisions): number[] {
+		let ts: number[] = [0]
+		
+		for (let d = 1; d <= divisions; d++) {
+			let u = d / divisions
+			ts.push(this.mapU2T(u))
+		}
+
+		return ts
+	}
+
+	/** 
+	 * Get a sequence of points based on divisions of equal-curvature value `e`.
+	 * The bigger the curvature is, the more divisions to make.
+	 * About `segmentCurvature`, reference to `getEqualCurvaturePoints`,
+	 */
+	getEqualCurvaturePoints(segmentCurvature?: number, scaling?: number): Readonly<Point>[] {
+		let points: Point[] = [this.startPoint]
+		let ts = this.getEqualCurvatureTs(segmentCurvature, scaling)
+		
+		for (let i = 1; i < ts.length; i++) {
+			let t = ts[i]
+			points.push(this.pointAt(t))
+		}
+
+		return points
+	}
+
+	/** 
+	 * Get a sequence of generating parameter t based on divisions of equal-curvature value `e`.
+	 * The bigger the curvature is, the more divisions to make.
+	 * 
+	 * `segmentCurvature` Specified the minimum `Cds` (Curvature * Arc Segment Length) to make a division.
+	 * 	   E.g.: a circle with radius 100, ∫Cds equals 63.
+	 * 	   `segmentCurvature` = 0.63 will cause 63 / 0.63 ≈ 50 divisions.
+	 *     If drawing as pixels 1:1, it will cause at most 100 * (1 - cos(360 / 50 / 2)) = 0.25 pixel error.
+	 */
+	getEqualCurvatureTs(segmentCurvature: number = 0.63, scaling: number = 1): number[] {
+		let lengthCurvatures = this.generateCurvatureArcLengthIntegral(this.lengthDivisions)
+		let totalLengthCurvature = lengthCurvatures[lengthCurvatures.length - 1]
+		let ts: number[] = [0]
+		
+		// New division count, at least 1.
+		let newDivisions = Math.max(Math.floor(totalLengthCurvature / segmentCurvature * scaling), 1)
+
+		for (let d = 1; d <= newDivisions; d++) {
+			let c = d / newDivisions
+			let t = IntegralLookup.locateIntegralX(c, lengthCurvatures)
+
+			ts.push(t)
+		}
+
+		return ts
+	}
+
+	/** 
+	 * Sampling curvature as `C`, let `s` be arc length,
+	 * do `∫Cds` and make a accumulated list.
+	 * Result list length is `divisions`.
+	 */
+	private generateCurvatureArcLengthIntegral(divisions: number): number[] {
+		let lengths = this.getLengths()
+		let accumulated: number[] = []
+		let total = 0
+
+		for (let d = 1; d <= divisions; d++) {
+			let t = d / divisions
+			let curvature = this.curvatureAt(t)
+
+			// A infinite curvature is meaningless and will make the whole calculation wrong.
+			// Normally if assume drawing curve as pixels 1:1, the most curvature that can be recognized is 0.5.
+			curvature = Math.min(curvature, 0.5)
+
+			total += curvature * lengths[d - 1]
+			accumulated.push(total)
+		}
+
+		return accumulated
+	}
+
+	/** Get partial curve by start and end generating parameters `t`. */
+	partOf(startT: number, endT: number): Curve {
+		if (startT <= 0 && endT >= 1) {
+			return this
+		}
+
+		return this.getUnFulfilledPartOf(startT, endT)
+	}
+
+	/** 
+	 * Get box of current curve.
+	 * Note it's not affected by outer transform and stroking width.
+	 */
+	getBox(): Readonly<Box> {
+		if (this.cachedBox) {
+			return this.cachedBox
+		}
+
+		let box = Box.fromCoords(this.startPoint, this.endPoint)!
+
+		for (let t of this.calcExtremeTs()) {
+			box.expandToContainSelf(this.pointAt(t))
+		}
+
+		return this.cachedBox = box
+	}
+
+	/** To get a closest point to `point` from current curve. */
+	closestPointTo(point: Point): Readonly<Point> {
+		let points = this.getPoints()
+
+		// Find index of the minimum distance from sampling points.
+		let minIndex = ListUtils.minIndex(points, (p) => {
+			return Vector.fromDiff(p, point).getLengthSquare()
+		})
+
+		let minT = minIndex / points.length
+		let minPoint = points[minIndex]
+		let tangent = this.tangentAt(minT)
+
+		// `flag = 1` means should increase t to find next.
+		let flag = Vector.fromDiff(point, minPoint).dot(tangent) > 0 ? 1 : -1
+
+		// At edge, already end.
+		if (flag > 0 && minT === 1 || flag < 0 && minT === 0) {
+			return minPoint
+		}
+
+		let startT = minT
+		let endT = minT + flag / points.length
+		let closestAtStart = true
+		let closestPoint = minPoint
+		let closestDistance = Vector.fromDiff(minPoint, point).getLengthSquare()
+
+		// To precision 1/2^12, normally at most 0.5 pixel error.
+		for (let i = 0; i < 12; i++) {
+			let centerT = (startT + endT) / 2
+			let centerPoint = this.pointAt(centerT)
+			let centerDistance = Vector.fromDiff(centerPoint, point).getLengthSquare()
+
+			if (centerDistance < closestDistance) {
+				closestPoint = centerPoint
+				closestDistance = centerDistance
+				closestAtStart = !closestAtStart
+			}
+
+			if (closestAtStart) {
+				endT = centerT
+			}
+			else {
+				startT = centerT
+			}
+		}
+
+		return closestPoint
+	}
+
+	/** Know X value, calc generating parameter `t`. */
+	calcTsByX(x: number): number[] {
+		let extremeTs = this.calcYExtremeTs()
+		let ts: number[] = []
+
+		for (let i = 0; i <= extremeTs.length; i++) {
+			let startT = i === 0 ? 0 : extremeTs[i - 1]
+			let endT = i === extremeTs.length ? 1 : extremeTs[i]
+			let startX = this.pointAt(startT).x
+			let endX = this.pointAt(endT).x
+
+			if (x > startX && x > endX || x < startX && x < endX) {
+				continue
+			}
+
+			let flag = NumberUtils.flag(endX - startX)
+
+			// To precision 1/2^12 / 12, normally at most 0.5 pixel error.
+			for (let i = 0; i < 12; i++) {
+				let centerT = (startT + endT) / 2
+				let centerX = this.pointAt(centerT).x
+				let centerFlag = (centerX - x) * flag
+
+				if (centerFlag < 0) {
+					startT = centerT
+				}
+				else {
+					endT = centerT
+				}
+			}
+
+			ts.push(startT)
+		}
+
+		return ts
+	}
+
+	/** Know Y value, calc generating parameter `t`. */
+	calcTsByY(y: number): number[] {
+		let extremeTs = this.calcYExtremeTs()
+		let ts: number[] = []
+
+		for (let i = 0; i <= extremeTs.length; i++) {
+			let startT = i === 0 ? 0 : extremeTs[i - 1]
+			let endT = i === extremeTs.length ? 1 : extremeTs[i]
+			let startX = this.pointAt(startT).y
+			let endX = this.pointAt(endT).y
+
+			if (y > startX && y > endX || y < startX && y < endX) {
+				continue
+			}
+
+			let flag = NumberUtils.flag(endX - startX)
+
+			for (let i = 0; i < 12; i++) {
+				let centerT = (startT + endT) / 2
+				let centerX = this.pointAt(centerT).y
+				let centerFlag = (centerX - y) * flag
+
+				if (centerFlag < 0) {
+					startT = centerT
+				}
+				else {
+					endT = centerT
+				}
+			}
+
+			ts.push(startT)
+		}
+
+		return ts
+	}
+
+	/** Get partial curve by start and end generating parameter `t`. */
+	protected abstract getUnFulfilledPartOf(startT: number, endT: number): Curve
+
+	/** 
+	 * Get extreme generating parameters `t`, where `dx / dt = 0` or `dy / dt = 0`.
+	 * Exclude start and end point, always sort from lower to upper.
+	 * Note this doesn't be affected by outer transform.
+	 */
+	protected abstract calcExtremeTs(): number[]
+
+	/** 
+	 * Get extreme generating parameters `t`, where `dx / dt = 0`.
+	 * Exclude start and end point, always sort from lower to upper.
+	 */
+	protected abstract calcXExtremeTs(): number[]
+
+	/** 
+	 * Get extreme generating parameters `t`, where `dy / dt = 0`.
+	 * Exclude start and end point, always sort from lower to upper.
+	*/
+	protected abstract calcYExtremeTs(): number[]
+
+	/** Get point by generating parameter `t` betweens 0~1. */
+	abstract pointAt(t: number): Point
+
+	/** Do transform, returns a new curve. */
+	abstract transform(matrix: Matrix): Curve
+
+	/** Convert current curve to cubic bezier curves, then can mix it easier with another. */
+	abstract toCubicBezierCurves(): CubicBezierCurve[]
+
+	/** Whether equals another same type curve. */
+	abstract equals(curve: this): boolean
+
+	/** Export as standardized JSON data. */
+	abstract toJSON(): CurveData
+}
+
