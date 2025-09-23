@@ -113,7 +113,7 @@ export class EllipseCurve extends Curve {
 		return pickPeriodicValuesInRange(v, Math.PI, min, max).map(v => MathUtils.linearStep(v, min, max))
 	}
 
-	protected getUnFulfilledPartOf(startT: number, endT: number) {
+	protected getUnFulfilledPartOf(startT: number, endT: number): this {
 		let {startAngle, endAngle, radius} = this
 		let startPoint = this.pointAt(startT)
 		let endPoint = this.pointAt(endT)
@@ -121,7 +121,7 @@ export class EllipseCurve extends Curve {
 		let endSita = MathUtils.mix(startAngle, endAngle, endT)
 		let largeArcFlag = (endSita - startSita) > Math.PI ? 1 : 0 as 0 | 1
 
-		return new EllipseCurve(startPoint, endPoint, radius, this.xAxisAngle, largeArcFlag, this.clockwiseFlag)
+		return new EllipseCurve(startPoint, endPoint, radius, this.xAxisAngle, largeArcFlag, this.clockwiseFlag) as this
 	}
 
 	pointAt(t: number) {

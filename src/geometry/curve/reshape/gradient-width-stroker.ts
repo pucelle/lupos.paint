@@ -206,7 +206,7 @@ export class GradientWidthStroker {
 		let points: Point[] = []
 		let left: Point[] = []
 		let right: Point[] = []
-		let ts: number[] = curve.getEqualCurvatureTs()
+		let ts: number[] = curve.getCurvatureAdaptiveTs()
 
 		for (let t of ts) {
 			let normal = curve.tangentAt(t).normalizeSelf()

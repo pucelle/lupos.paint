@@ -1,7 +1,7 @@
 import {CurvePath, CurvePathGroup} from '../curve-paths'
 import {GradientWidthStroker} from './gradient-width-stroker'
 import {CurvePathSmoother} from './smoother'
-import {CurvePathWaver} from './waver'
+import {CurvePathWiggler} from './wiggle'
 
 
 interface PaintStrokeStyleData {
@@ -98,7 +98,7 @@ export function reshapePath(path: CurvePath, style: PaintStrokeStyleData, option
 	}
 
 	if (options.wave) {
-		continuous = new CurvePathWaver(path, options.wave.waveLength, options.wave.amplitudeRate, options.wave.smoothRate).generate()
+		continuous = new CurvePathWiggler(path, options.wave.waveLength, options.wave.amplitudeRate, options.wave.smoothRate).generate()
 	}
 
 	let result: CurvePath | CurvePathGroup = continuous

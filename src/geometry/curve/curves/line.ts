@@ -95,8 +95,8 @@ export class LineCurve extends Curve {
 		return []
 	}
 
-	protected getUnFulfilledPartOf(startT: number, endT: number) {
-		return new LineCurve(this.pointAt(startT), this.pointAt(endT))
+	protected getUnFulfilledPartOf(startT: number, endT: number): this {
+		return new LineCurve(this.pointAt(startT), this.pointAt(endT)) as this
 	}
 
 	pointAt(t: number) {

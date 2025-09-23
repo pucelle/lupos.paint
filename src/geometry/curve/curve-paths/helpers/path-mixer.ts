@@ -17,7 +17,7 @@ export class CurvePathMixer {
 
 	constructor(fromPath: CurvePath, toPath: CurvePath) {
 		if (fromPath.closed !== toPath.closed) {
-			throw new Error(`Two paths wait for transition must both be closed or not closed!`)
+			throw new Error(`Two paths to transition must both be closed or not closed!`)
 		}
 
 		this.fromPath = fromPath

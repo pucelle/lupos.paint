@@ -3,8 +3,8 @@ import {Curve, LineCurve} from '../curves'
 import {CurvePathSmoother} from './smoother'
 
 
-/** Make path become wave line. */
-export class CurvePathWaver {
+/** Make path become wiggle, wave line. */
+export class CurvePathWiggler {
 
 	private curvePath: CurvePath
 

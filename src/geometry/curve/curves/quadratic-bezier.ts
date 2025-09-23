@@ -79,7 +79,7 @@ export class QuadraticBezierCurve extends Curve {
 		return []
 	}
 
-	protected getUnFulfilledPartOf(startT: number, endT: number) {
+	protected getUnFulfilledPartOf(startT: number, endT: number): this {
 		let startPoint = this.pointAt(startT)
 		let endPoint = this.pointAt(endT)
 
@@ -93,7 +93,7 @@ export class QuadraticBezierCurve extends Curve {
 		let startTangent = this.tangentAt(startT)
 		let control = startPoint.add(startTangent.multiplyScalar(0.5))
 		
-		return new QuadraticBezierCurve(startPoint, endPoint, control)
+		return new QuadraticBezierCurve(startPoint, endPoint, control) as this
 	}
 	
 	pointAt(t: number) {

@@ -15,6 +15,7 @@ export abstract class Curve {
 	 * This value is used to make an equivalent-t sampling,
 	 * It affects the precision of equal-length or equal-curvature division.
 	 * The default value `12` come from source codes of three.js, it fit for division of a 25px circle.
+	 * Normally no need to increase `12` because default division normally provides for testing.
 	 */
 	lengthDivisions: number = 12
 
@@ -43,7 +44,7 @@ export abstract class Curve {
 
 	/**
 	 * Get an accumulated arc length list.
-	 * The got list length is `lengthDivisions` and is cacheable.
+	 * The got list length is `lengthDivisions`, end value is total length, and is cacheable.
 	 */
 	getLengths(divisions: number = this.lengthDivisions): number[] {
 		if (this.cachedLengths?.length === divisions) {
@@ -84,17 +85,12 @@ export abstract class Curve {
 
 	/** Map arc length rate parameter `u` to generating parameter `t`. */
 	mapU2T(u: number): number {
-		return IntegralLookup.locateIntegralX(u, this.getLengths())
+		return IntegralLookup.lookupXRateByYRate(u, this.getLengths())
 	}
 
 	/** Map generating parameter `t` to arc length rate parameter `u`. */
 	mapT2U(t: number): number {
-		return IntegralLookup.locateIntegralY(t, this.getLengths()) / this.getLength()
-	}
-		
-	/** Get point at arc length percentage, `u` betweens 0~1. */
-	spacedPointAt(u: number): Point {
-		return this.pointAt(this.mapU2T(u))
+		return IntegralLookup.lookupYRateByXRate(t, this.getLengths())
 	}
 
 	/** Get generating parameter `t` at specified arc length. */
@@ -104,19 +100,11 @@ export abstract class Curve {
 
 		return this.mapU2T(u)
 	}
-	
-	/** Get point at specified arc length. */
-	pointAtLength(length: number): Point {
-		let totalLength = this.getLength()
-		let u = length / totalLength
-
-		return this.spacedPointAt(u)
-	}
 
 	/** 
 	 * Get tangent vector by generating parameter `t`.
-	 * The returned vector length also represent the changing speed of curve point based on t.
-	 * This is a approximate method, better ways need doing `dL/dt`. 
+	 * The returned vector length also represent the changing speed of arc length by t - `dL/dt`.
+	 * This is a approximate method, better ways need solving `dL/dt`. 
 	 */
 	tangentAt(t: number): Vector {
 		let point1 = this.pointAt(t)
@@ -127,9 +115,9 @@ export abstract class Curve {
 
 	/** 
 	 * Get unit normal vector by generating parameter `t`.
-	 * Normal vector direction is always equals tangent vector rotate 90° clockwise.
+	 * Normal vector direction is always equals tangent vector rotate +-90° clockwise.
 	 */
-	normalAt(t: number, clockwiseFlag = true): Vector {
+	normalAt(t: number, clockwiseFlag: 0 | 1): Vector {
 		let tangent = this.tangentAt(t)
 		return tangent.rotateInDegreeSelf(clockwiseFlag ? -90 : 90).normalizeSelf()
 	}
@@ -166,6 +154,19 @@ export abstract class Curve {
 
 		return Math.abs(xd1 * yd2 - xd2 * yd1) / Math.pow(xd1 * xd1 + yd1 * yd1, 1.5)
 	}
+			
+	/** Get point at arc length percentage, `u` betweens 0~1. */
+	spacedPointAt(u: number): Point {
+		return this.pointAt(this.mapU2T(u))
+	}
+
+	/** Get point at specified arc length. */
+	pointAtLength(length: number): Point {
+		let totalLength = this.getLength()
+		let u = length / totalLength
+
+		return this.spacedPointAt(u)
+	}
 
 	/** 
 	 * Get a sequence of points based on divisions of equal-distanced `t`.
@@ -180,10 +181,12 @@ export abstract class Curve {
 
 		let points: Point[] = [this.startPoint]
 		
-		for (let d = 1; d <= divisions; d++) {
+		for (let d = 1; d < divisions; d++) {
 			let t = d / divisions
 			points.push(this.pointAt(t))
 		}
+
+		points.push(this.endPoint)
 
 		if (divisions === this.lengthDivisions) {
 			this.cachedPoints = points
@@ -196,14 +199,15 @@ export abstract class Curve {
 	 * Get a sequence of points based on divisions of equal-distanced arc length rate `u`.
 	 * Length of returned list is `divisions + 1`.
 	 */
-	getSpacedPoints(divisions?: number): Readonly<Point>[] {
+	getSpacedPoints(divisions: number = this.lengthDivisions): Readonly<Point>[] {
 		let points: Point[] = [this.startPoint]
-		let ts = this.getSpacedTs(divisions)
 
-		for (let i = 1; i < ts.length; i++) {
-			let t = ts[i]
-			points.push(this.pointAt(t))
+		for (let d = 1; d < divisions; d++) {
+			let u = d / divisions
+			points.push(this.spacedPointAt(u))
 		}
+
+		points.push(this.endPoint)
 
 		return points
 	}
@@ -228,9 +232,9 @@ export abstract class Curve {
 	 * The bigger the curvature is, the more divisions to make.
 	 * About `segmentCurvature`, reference to `getEqualCurvaturePoints`,
 	 */
-	getEqualCurvaturePoints(segmentCurvature?: number, scaling?: number): Readonly<Point>[] {
+	getCurvatureAdaptivePoints(segmentCurvature?: number, scaling?: number): Readonly<Point>[] {
 		let points: Point[] = [this.startPoint]
-		let ts = this.getEqualCurvatureTs(segmentCurvature, scaling)
+		let ts = this.getCurvatureAdaptiveTs(segmentCurvature, scaling)
 		
 		for (let i = 1; i < ts.length; i++) {
 			let t = ts[i]
@@ -241,39 +245,52 @@ export abstract class Curve {
 	}
 
 	/** 
-	 * Get a sequence of generating parameter t based on divisions of equal-curvature value `e`.
+	 * Get a sequence of generating parameter t based on divisions of curvature adaptive.
 	 * The bigger the curvature is, the more divisions to make.
-	 * 
-	 * `segmentCurvature` Specified the minimum `Cds` (Curvature * Arc Segment Length) to make a division.
-	 * 	   E.g.: a circle with radius 100, ∫Cds equals 63.
-	 * 	   `segmentCurvature` = 0.63 will cause 63 / 0.63 ≈ 50 divisions.
-	 *     If drawing as pixels 1:1, it will cause at most 100 * (1 - cos(360 / 50 / 2)) = 0.25 pixel error.
 	 */
-	getEqualCurvatureTs(segmentCurvature: number = 0.63, scaling: number = 1): number[] {
-		let lengthCurvatures = this.generateCurvatureArcLengthIntegral(this.lengthDivisions)
-		let totalLengthCurvature = lengthCurvatures[lengthCurvatures.length - 1]
-		let ts: number[] = [0]
-		
-		// New division count, at least 1.
-		let newDivisions = Math.max(Math.floor(totalLengthCurvature / segmentCurvature * scaling), 1)
+	getCurvatureAdaptiveTs(maxPixelDiff: number = 0.25, scaling: number = 1): number[] {
 
-		for (let d = 1; d <= newDivisions; d++) {
+		// Let R be radius, Arc is Arc Length after subdivision
+		// MaxPixelDiff
+		// 		= R * (1 - cos(Arc / R / 2))
+		// 		≈ R * (Arc / R / 2)^2 / 2
+		// 		= Arc^2 / 8R
+
+		// Normally we want it < MaxPixelDiff, so:
+		// Arc^2 / 8R < MaxPixelDiff
+		// Arc < (MaxPixelDiff * 8R)^0.5
+
+		// TotalArcLength = ∫dArc
+		// 		= ∫(MaxPixelDiff * 8 / C)^0.5
+		// 		= (8 * MaxPixelDiff)^0.5 * Average(C^0.5) * DivisionCount
+
+		// DivisionCount = TotalArcLength / Average((MaxPixelDiff * 8 / C)^0.5)
+		// Which also means when scaling for S, DivisionCount increased by S^0.5
+
+		let curvatureSqrtIntegral = this.generateCurvatureSqrtIntegral(this.lengthDivisions, scaling)
+		let totalCurvatureSqrt = curvatureSqrtIntegral[curvatureSqrtIntegral.length - 1]
+		let averageArcLength = Math.sqrt(8 * maxPixelDiff) * totalCurvatureSqrt / curvatureSqrtIntegral.length
+		let newDivisions = Math.max(Math.floor(this.getLength() / averageArcLength * Math.sqrt(scaling)), 1)
+		let ts: number[] = [0]
+
+		for (let d = 1; d < newDivisions; d++) {
 			let c = d / newDivisions
-			let t = IntegralLookup.locateIntegralX(c, lengthCurvatures)
+			let t = IntegralLookup.lookupXRateByYRate(c, curvatureSqrtIntegral)
 
 			ts.push(t)
 		}
+
+		ts.push(1)
 
 		return ts
 	}
 
 	/** 
-	 * Sampling curvature as `C`, let `s` be arc length,
-	 * do `∫Cds` and make a accumulated list.
+	 * Sampling curvature as `C`,
+	 * do `∫C^0.5dt` and make a accumulated list.
 	 * Result list length is `divisions`.
 	 */
-	private generateCurvatureArcLengthIntegral(divisions: number): number[] {
-		let lengths = this.getLengths()
+	private generateCurvatureSqrtIntegral(divisions: number, scaling: number): number[] {
 		let accumulated: number[] = []
 		let total = 0
 
@@ -282,10 +299,10 @@ export abstract class Curve {
 			let curvature = this.curvatureAt(t)
 
 			// A infinite curvature is meaningless and will make the whole calculation wrong.
-			// Normally if assume drawing curve as pixels 1:1, the most curvature that can be recognized is 0.5.
-			curvature = Math.min(curvature, 0.5)
+			// Normally if assume drawing curve as pixels 1:1, the most curvature that can be recognized is 1.
+			curvature = Math.min(curvature, scaling)
 
-			total += curvature * lengths[d - 1]
+			total += Math.sqrt(curvature)
 			accumulated.push(total)
 		}
 
@@ -293,7 +310,7 @@ export abstract class Curve {
 	}
 
 	/** Get partial curve by start and end generating parameters `t`. */
-	partOf(startT: number, endT: number): Curve {
+	partOf(startT: number, endT: number): this {
 		if (startT <= 0 && endT >= 1) {
 			return this
 		}
@@ -319,7 +336,7 @@ export abstract class Curve {
 		return this.cachedBox = box
 	}
 
-	/** To get a closest point to `point` from current curve. */
+	/** Find the closest point on the curve to specified `point`. */
 	closestPointTo(point: Point): Readonly<Point> {
 		let points = this.getPoints()
 
@@ -443,7 +460,7 @@ export abstract class Curve {
 	}
 
 	/** Get partial curve by start and end generating parameter `t`. */
-	protected abstract getUnFulfilledPartOf(startT: number, endT: number): Curve
+	protected abstract getUnFulfilledPartOf(startT: number, endT: number): this
 
 	/** 
 	 * Get extreme generating parameters `t`, where `dx / dt = 0` or `dy / dt = 0`.

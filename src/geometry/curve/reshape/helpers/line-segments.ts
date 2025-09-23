@@ -88,7 +88,7 @@ export function makeNormalTangent(points: Point[], index: number, direction: 1 |
 
 
 /** 
- * For two line segments, compare their points and tangents.
+ * For two line segment list, compare their points and tangents.
  * If pop points from `segments1`, and shift points from `segments2` can make the rest segments intersected,
  * Then do this, and combine rest points and the intersected point to a new segments.
  */

@@ -1,12 +1,11 @@
 import {solveOneVariableQuadraticEquation} from './equation'
-import {Point} from './point'
-import {Vector} from './vector'
+import {Point, Vector} from '@pucelle/ff'
 
 
 /** 
  * Represents a 2x2 Matrix.
  * It's nearly equals a Matrix without translate,
- * But more convinent when doing some calculations like inversing.
+ * But more convenient when doing some calculations like inverting.
  */
 export class Matrix2 {
 

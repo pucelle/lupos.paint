@@ -15,7 +15,11 @@ export class ArcCurve extends Curve {
 	/** Large arc flag, 1 or 0. */
 	readonly largeArcFlag: 0 | 1
 
-	/** Clockwise flag, 1 or 0. */
+	/** 
+	 * Clockwise flag, 1 or 0.
+	 * If is `1`, `endAngle` > `startAngle`.
+	 * If is `0`, `endAngle` < `startAngle`.
+	 */
 	readonly clockwiseFlag: 0 | 1
 
 	/** Center coordinate. */
@@ -47,8 +51,30 @@ export class ArcCurve extends Curve {
 	}
 
 	getLength(): number {
-		let {startAngle, endAngle} = this
-		return Math.abs(endAngle - startAngle) * this.radius
+		return Math.abs(this.endAngle - this.startAngle) * this.radius
+	}
+
+	/**
+	 * Get an accumulated arc length list.
+	 * The got list length is `lengthDivisions` and is cacheable.
+	 */
+	getLengths(divisions: number = this.lengthDivisions): number[] {
+		if (this.cachedLengths?.length === divisions) {
+			return this.cachedLengths
+		}
+
+		let lengths: number[] = []
+		let pieceLength = Math.abs(this.endAngle - this.startAngle) * this.radius / divisions
+
+		for (let d = 1; d <= divisions; d++) {
+			lengths.push(pieceLength * d)
+		}
+
+		if (divisions === this.lengthDivisions) {
+			this.cachedLengths = lengths
+		}
+
+		return lengths
 	}
 
 	getSpacedPoints(divisions: number = this.lengthDivisions): Readonly<Point>[] {
@@ -85,17 +111,52 @@ export class ArcCurve extends Curve {
 		return new Vector(x, y)
 	}
 
+	normalAt(t: number, clockwiseFlag: 0 | 1): Vector {
+		let {startAngle, endAngle} = this
+		let sita = MathUtils.mix(startAngle, endAngle, t)
+		let cosSita = Math.cos(sita)
+		let sinSita = Math.sin(sita)
+
+		if (this.clockwiseFlag === clockwiseFlag) {
+			return new Vector(-cosSita, -sinSita)
+		}
+		else {
+			return new Vector(cosSita, sinSita)
+		}
+	}
+
 	curvatureAt(_t: number): number {
 		return 1 / this.radius
 	}
 
-	getEqualCurvaturePoints(segmentCurvature: number = 0.63, scaling: number = 1): Readonly<Point>[] {
-		let {startAngle, endAngle} = this
-		let totalLengthCurvature = Math.abs(endAngle - startAngle)
-		let divisions = Math.max(Math.floor(totalLengthCurvature / segmentCurvature * scaling), 1)
-
+	getCurvatureAdaptivePoints(maxPixelDiff: number = 0.25, scaling: number = 1): Readonly<Point>[] {
+		let divisions = this.getArcCurvatureAdaptiveDivisions(maxPixelDiff, scaling)
 		return this.getPoints(divisions)
 	}
+
+	private getArcCurvatureAdaptiveDivisions(maxPixelDiff: number, scaling: number) {
+		
+		// DivisionCount = TotalArcLength / Average((MaxPixelDiff * 8 / C)^0.5)
+		let totalArcLength = Math.abs(this.endAngle - this.startAngle) * this.radius
+		let arcLength = Math.sqrt(maxPixelDiff * 8 * this.radius)
+		let divisions = Math.max(Math.floor(totalArcLength / arcLength * Math.sqrt(scaling)), 1)
+
+		return divisions
+	}
+
+	// getCurvatureAdaptiveTs(maxPixelDiff: number = 0.25, scaling: number = 1): number[] {
+	// 	let divisions = this.getArcCurvatureAdaptiveDivisions(maxPixelDiff, scaling)
+	// 	let ts: number[] = [0]
+		
+	// 	for (let d = 1; d < divisions; d++) {
+	// 		let t = d / divisions
+	// 		ts.push(t)
+	// 	}
+
+	// 	ts.push(1)
+
+	// 	return ts
+	// }
 
 	closestPointTo(point: Point): Readonly<Point> {
 		let {startAngle, endAngle, center} = this
@@ -154,7 +215,7 @@ export class ArcCurve extends Curve {
 		return sitaL.map(s => (s - startAngle) / (endAngle - startAngle))
 	}
 
-	protected getUnFulfilledPartOf(startT: number, endT: number): ArcCurve {
+	protected getUnFulfilledPartOf(startT: number, endT: number): this {
 		let {startAngle, endAngle, radius} = this
 		let startPoint = this.pointAt(startT)
 		let endPoint = this.pointAt(endT)
@@ -162,7 +223,7 @@ export class ArcCurve extends Curve {
 		let endSita = MathUtils.mix(startAngle, endAngle, endT)
 		let largeArcFlag = ((endSita - startSita) > Math.PI ? 1 : 0) as 0 | 1
 
-		return new ArcCurve(startPoint, endPoint, radius, largeArcFlag, this.clockwiseFlag)
+		return new ArcCurve(startPoint, endPoint, radius, largeArcFlag, this.clockwiseFlag) as this
 	}
 
 	protected calcExtremeTs(): number[] {
@@ -208,7 +269,7 @@ export class ArcCurve extends Curve {
 	transform(matrix: Matrix): ArcCurve | EllipseCurve {
 		let startPoint = matrix.transformPoint(this.startPoint)
 		let endPoint = matrix.transformPoint(this.endPoint)
-		let larArcFlag = this.largeArcFlag
+		let largeArcFlag = this.largeArcFlag
 		let clockwiseFlag = (matrix.isMirrored() ? 1 - this.clockwiseFlag : this.clockwiseFlag) as 0 | 1
 
 		// Not similar transform, become an ellipsis.
@@ -219,13 +280,13 @@ export class ArcCurve extends Curve {
 			let radius = new Vector(v1.getLength(), v2.getLength())
 			let xAxisAngle = v1.angle()
 
-			return new EllipseCurve(startPoint, endPoint, radius, xAxisAngle, larArcFlag, clockwiseFlag)
+			return new EllipseCurve(startPoint, endPoint, radius, xAxisAngle, largeArcFlag, clockwiseFlag)
 		}
 
 		// Still be arc.
 		else {
 			let radius = this.radius * matrix.a
-			return new ArcCurve(startPoint, endPoint, radius, larArcFlag, clockwiseFlag)
+			return new ArcCurve(startPoint, endPoint, radius, largeArcFlag, clockwiseFlag)
 		}
 	}
 

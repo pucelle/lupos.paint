@@ -35,13 +35,13 @@ export class CubicBezierCurve extends Curve {
 	tangentAt(t: number): Vector {
 		
 		// v = 1 - t
-		// P'(t, ν) = -3ν^2P0 + 3(ν^2 - 2tν)P1 + 3(-t^2 + 2tν)P2 + 3t^2P3
+		// P'(t, ν) = 3ν^2P0 + 3(ν^2 - 2tν)P1 + 3(-t^2 + 2tν)P2 + 3t^2P3
 
 		let v = 1 - t
-		let f0 = -3 * v * v
-		let f1 =  3 * v * v - 6 * t * v
-		let f2 = -3 * t * t + 6 * t * v
-		let f3 =  3 * t * t
+		let f0 =  -3 * v * v
+		let f3 =   3 * t * t
+		let f1 = -f0 - 6 * t * v
+		let f2 = -f3 + 6 * t * v
 
 		let {x, y} = this.interpolatePoints(f0, f1, f2, f3)
 
@@ -92,7 +92,7 @@ export class CubicBezierCurve extends Curve {
 		return []
 	}
 
-	protected getUnFulfilledPartOf(startT: number, endT: number) {
+	protected getUnFulfilledPartOf(startT: number, endT: number): this {
 		let startPoint = this.pointAt(startT)
 		let endPoint = this.pointAt(endT)
 
@@ -114,7 +114,7 @@ export class CubicBezierCurve extends Curve {
 		let control1 = startPoint.add(startTangent.multiplyScalarSelf(1/3))
 		let control2 = endPoint.add(endTangent.multiplyScalarSelf(-1/3))
 
-		return new CubicBezierCurve(startPoint, endPoint, control1, control2)
+		return new CubicBezierCurve(startPoint, endPoint, control1, control2) as this
 	}
 	
 	pointAt(t: number): Point {

@@ -1,7 +1,7 @@
 import {Box, IntegralLookup, MathUtils, Matrix, Point, Vector} from '@pucelle/ff'
 import {CurveData, CurveType} from '../types'
 import {ArcCurve, Curve, CubicBezierCurve, LineCurve, QuadraticBezierCurve, EllipseCurve} from '../curves'
-import {parseSVGPathD} from './helpers/svg-path-d'
+import {makeSVGPathD, parseSVGPathD} from './helpers/svg-path-d'
 import {CurvePathMixer} from './helpers/path-mixer'
 
 
@@ -738,7 +738,7 @@ export class CurvePath {
 	 * according to comparing curve arc length.
 	 */
 	mapGlobalToLocal(globalV: number): {i: number, l: number} {
-		let il = IntegralLookup.locateIntegralX(globalV, this.getLengths()) * this.curves.length
+		let il = IntegralLookup.lookupXRateByYRate(globalV, this.getLengths()) * this.curves.length
 		let i = Math.min(Math.floor(il), this.curves.length - 1)
 		let l = il - i
 
@@ -838,11 +838,11 @@ export class CurvePath {
 			return []
 		}
 
-		let points: Point[] = this.curves[0].getEqualCurvaturePoints(segmentLengthCurvature, scaling)
+		let points: Point[] = this.curves[0].getCurvatureAdaptivePoints(segmentLengthCurvature, scaling)
 
 		for (let i = 1; i < this.curves.length; i++) {
 			let curve = this.curves[i]
-			let curvePoints = curve.getEqualCurvaturePoints(segmentLengthCurvature, scaling)
+			let curvePoints = curve.getCurvatureAdaptivePoints(segmentLengthCurvature, scaling)
 
 			for (let j = 0; i < curvePoints.length; j++) {
 				let p = curvePoints[j]
@@ -872,9 +872,9 @@ export class CurvePath {
 	 * Get unit normal vector by generating parameter `t`.
 	 * Normal vector direction is always equals tangent vector rotate 90° clockwise.
 	 */
-	normalAt(globalT: number): Vector {
+	normalAt(globalT: number, clockwiseFlag: 0 | 1): Vector {
 		let {i, l: t} = this.mapGlobalToLocal(globalT)
-		return this.curves[i].normalAt(t)
+		return this.curves[i].normalAt(t, clockwiseFlag)
 	}
 
 	/** Get curvature, which means `1 / Curvature Radius`. */
@@ -1173,5 +1173,10 @@ export class CurvePath {
 		}
 
 		return inside ? -distance : distance
+	}
+
+	/** Convert to svg path d property. */
+	toSVGPathD(): string {
+		return makeSVGPathD(this.toJSON())
 	}
 }
