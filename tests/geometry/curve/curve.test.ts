@@ -263,9 +263,9 @@ describe('Test Curve', () => {
 		expect(bezier.curvatureAt(1)).toBeCloseTo(0.5)
 
 		expect(bezier.getCurvatureAdaptiveTs(0.25, 100).length).toEqual(12)
-		expect(bezier.getCurvatureAdaptiveTs(0.25, 1000).length).toEqual(36)
 		expect(bezier.getCurvatureAdaptiveTs(0.25, 100)[0]).toBeCloseTo(0)
 		expect(bezier.getCurvatureAdaptiveTs(0.25, 100)[1]).toBeCloseTo(0.11525460691397445)
+		expect(bezier.getCurvatureAdaptiveTs(0.25, 1000).length).toEqual(36)
 
 		expect(bezier.getBox()).toEqual({x: 0, y: 0, width: 1, height: 1})
 		expectCloseTo(bezier.closestPointTo(new Point(1, 0)), {x: 0.75, y: 0.25})

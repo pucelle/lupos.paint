@@ -892,14 +892,9 @@ export class CurvePath {
 			let curve = this.curves[i]
 			let curveTs = curve.getCurvatureAdaptiveTs(maxPixelDiff, scaling)
 
-			for (let j = 0; i < curveTs.length; j++) {
+			// Skip first
+			for (let j = 1; j < curveTs.length; j++) {
 				let t = curveTs[j]
-
-				// Skip first point.
-				if (j === 0) {
-					continue
-				}
-
 				ts.push(this.mapLocalT2Global(i, t))
 			}
 		}
@@ -922,14 +917,9 @@ export class CurvePath {
 			let curve = this.curves[i]
 			let curvePoints = curve.getCurvatureAdaptivePoints(maxPixelDiff, scaling)
 
-			for (let j = 0; i < curvePoints.length; j++) {
+			// Skip first
+			for (let j = 1; j < curvePoints.length; j++) {
 				let p = curvePoints[j]
-
-				// Skip first point.
-				if (j === 0) {
-					continue
-				}
-
 				points.push(p)
 			}
 		}
@@ -1030,6 +1020,10 @@ export class CurvePath {
 
 	/** Whether equals another curve path. */
 	equals(curvePath: CurvePath): boolean {
+		if (this.closed !== curvePath.closed) {
+			return false
+		}
+		
 		if (this.curves.length !== curvePath.curves.length) {
 			return false
 		}

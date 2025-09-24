@@ -2,9 +2,26 @@ import {Point} from '@pucelle/ff'
 import {CurvePath, LineCurve} from '../../../src/geometry'
 
 
+function expectCloseTo(o: any, compare: any) {
+	if (Array.isArray(o)) {
+		for (let i = 0; i < o.length; i++) {
+			expectCloseTo(o[i], compare[i])
+		}
+	}
+	else if (typeof o === 'object') {
+		for (let key of Object.keys(o)) {
+			expectCloseTo((o as any)[key], compare[key])
+		}
+	}
+	else {
+		expect(o).toBeCloseTo(compare)
+	}
+}
+
+
 describe('Test CurvePath', () => {
 	
-	test('Line', () => {
+	test('Line CurvePath', () => {
 		let path = new CurvePath()
 		path.addCurve(new LineCurve(new Point(0, 0), new Point(1, 0)))
 		path.addCurve(new LineCurve(new Point(1, 0), new Point(1, 2)))
@@ -34,63 +51,38 @@ describe('Test CurvePath', () => {
 		expect(path.mapLocalU2Global(1, 0.25)).toEqual(0.5)
 		expect(path.mapLocalU2Global(1, 1)).toEqual(1)
 
-		expect(path.pointAt(0).x).toBeCloseTo(0)
-		expect(path.pointAt(0).y).toBeCloseTo(0)
-		expect(path.pointAt(0.5).x).toBeCloseTo(1)
-		expect(path.pointAt(0.5).y).toBeCloseTo(0.5)
-		expect(path.pointAt(1).x).toBeCloseTo(1)
-		expect(path.pointAt(1).y).toBeCloseTo(2)
+		expectCloseTo(path.pointAt(0), {x: 0, y: 0})
+		expectCloseTo(path.pointAt(0.5), {x: 1, y: 0})
+		expectCloseTo(path.pointAt(1), {x: 1, y: 2})
 
-		expect(path.getPoints(2)[0].x).toBeCloseTo(0)
-		expect(path.getPoints(2)[0].y).toBeCloseTo(0)
-		expect(path.getPoints(2)[1].x).toBeCloseTo(1)
-		expect(path.getPoints(2)[1].y).toBeCloseTo(0.5)
-		expect(path.getPoints(2)[2].x).toBeCloseTo(1)
-		expect(path.getPoints(2)[2].y).toBeCloseTo(2)
+		expectCloseTo(path.spacedPointAt(0), {x: 0, y: 0})
+		expectCloseTo(path.spacedPointAt(0.5), {x: 1, y: 0.5})
+		expectCloseTo(path.spacedPointAt(1), {x: 1, y: 2})
 
-		expect(path.spacedPointAt(0).x).toBeCloseTo(0)
-		expect(path.spacedPointAt(0).y).toBeCloseTo(0)
-		expect(path.spacedPointAt(0.5).x).toBeCloseTo(1)
-		expect(path.spacedPointAt(0.5).y).toBeCloseTo(0.5)
-		expect(path.spacedPointAt(1).x).toBeCloseTo(1)
-		expect(path.spacedPointAt(1).y).toBeCloseTo(2)
+		expectCloseTo(path.getPoints(2), [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 2}])
+		expectCloseTo(path.getSpacedPoints(2), [{x: 0, y: 0}, {x: 1, y: 0.5}, {x: 1, y: 2}])
 
-		expect(path.getSpacedPoints(2)[0].x).toBeCloseTo(0)
-		expect(path.getSpacedPoints(2)[0].y).toBeCloseTo(0)
-		expect(path.getSpacedPoints(2)[1].x).toBeCloseTo(1)
-		expect(path.getSpacedPoints(2)[1].y).toBeCloseTo(0.5)
-		expect(path.getSpacedPoints(2)[2].x).toBeCloseTo(1)
-		expect(path.getSpacedPoints(2)[2].y).toBeCloseTo(2)
+		expectCloseTo(path.getSpacedTs(2), [0, 0.625, 1])
 
-		expect(path.getSpacedTs(2)[0]).toBeCloseTo(0)
-		expect(path.getSpacedTs(2)[1]).toBeCloseTo(0.625)
-		expect(path.getSpacedTs(2)[2]).toBeCloseTo(1)
+		expectCloseTo(path.tangentAt(0), {x: 1, y: 0})
+		expectCloseTo(path.tangentAt(1), {x: 0, y: 2})
 
-		expect(path.tangentAt(0).x).toBeCloseTo(1)
-		expect(path.tangentAt(1).y).toBeCloseTo(2)
+		expectCloseTo(path.normalAt(0, 0), {x: 0, y: -1})
+		expectCloseTo(path.normalAt(1, 0), {x: 1, y: 0})
 
-		expect(path.normalAt(0, 0).x).toBeCloseTo(Math.sqrt(0.5))
-		expect(path.normalAt(0, 0).y).toBeCloseTo(-Math.sqrt(0.5))
-		expect(path.normalAt(0.5, 0).x).toBeCloseTo(Math.sqrt(0.5))
-		expect(path.normalAt(0.5, 0).y).toBeCloseTo(-Math.sqrt(0.5))
-		expect(path.normalAt(1, 0).x).toBeCloseTo(Math.sqrt(0.5))
-		expect(path.normalAt(1, 0).y).toBeCloseTo(-Math.sqrt(0.5))
-
-		expect(path.normalAt(0, 1).x).toBeCloseTo(-Math.sqrt(0.5))
-		expect(path.normalAt(0, 1).y).toBeCloseTo(Math.sqrt(0.5))
-		expect(path.normalAt(0.5, 1).x).toBeCloseTo(-Math.sqrt(0.5))
-		expect(path.normalAt(0.5, 1).y).toBeCloseTo(Math.sqrt(0.5))
-		expect(path.normalAt(1, 1).x).toBeCloseTo(-Math.sqrt(0.5))
-		expect(path.normalAt(1, 1).y).toBeCloseTo(Math.sqrt(0.5))
+		expectCloseTo(path.normalAt(0, 1), {x: 0, y: 1})
+		expectCloseTo(path.normalAt(1, 1), {x: -1, y: 0})
 
 		expect(path.curvatureAt(0)).toBeCloseTo(0)
 
-		expect(path.getCurvatureAdaptiveTs().length).toEqual(2)
-		expect(path.getCurvatureAdaptiveTs()[0]).toBeCloseTo(0)
-		expect(path.getCurvatureAdaptiveTs()[1]).toBeCloseTo(1)
+		expect(path.getCurvatureAdaptiveTs().length).toEqual(3)
 
-		expect(path.getBox()).toEqual({x: 0, y: 0, width: 1, height: 1})
-		expect(path.closestPointTo(new Point(1, 0)).x).toBeCloseTo(0.5)
-		expect(path.closestPointTo(new Point(1, 0)).y).toBeCloseTo(0.5)
+		expect(path.getBox()).toEqual({x: 0, y: 0, width: 1, height: 2})
+		expectCloseTo(path.closestPointTo(new Point(0.5, 0.5)), {x: 0.5, y: 0})
+		expectCloseTo(path.calcTsByX(0.5), [0.16666666666666666])
+		expectCloseTo(path.calcTsByY(0.5), [0.5])
+
+		expect(path.toSVGPathD()).toBe('M0 0L1 0L1 2')
+		expect(CurvePath.fromSVGPathD(path.toSVGPathD())!.equals(path)).toBeTruthy()
 	})
 })
