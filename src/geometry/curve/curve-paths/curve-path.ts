@@ -7,7 +7,7 @@ import {CurvePathMixer} from './helpers/path-mixer'
 
 /** 
  * Contains a list of curves that connected in sequence,
- * and keep consistent APIs of Curve.
+ * and keep consistent APIs with Curve.
  * All curves inside must be continuous.
  */
 export class CurvePath {
@@ -48,7 +48,10 @@ export class CurvePath {
 		return path
 	}
 
-	/** Make a curve path from a SVG path "d" attribute. */
+	/** 
+	 * Make a curve path from a SVG path "d" attribute.
+	 * Note `d` can only have a single `M` command.
+	 */
 	static fromSVGPathD(d: string): CurvePath | null {
 		let path = new CurvePath()
 
@@ -729,43 +732,81 @@ export class CurvePath {
 
 	/** Map it's global arc length rate parameter `u` to global generating parameter `t`. */
 	mapU2T(globalU: number): number {
-		let {i, l: t} = this.mapGlobalToLocal(globalU)
+		let {i, u} = this.mapGlobalU2Local(globalU)
+		let curve = this.curves[i]
+		let t = curve.mapU2T(u)
+
 		return (i + t) / this.curves.length
 	}
 
-	/** 
-	 * Map a global parameter `u/t` to curve index and a local `u/t` parameter,
-	 * according to comparing curve arc length.
-	 */
-	mapGlobalToLocal(globalV: number): {i: number, l: number} {
-		let il = IntegralLookup.lookupXRateByYRate(globalV, this.getLengths()) * this.curves.length
-		let i = Math.min(Math.floor(il), this.curves.length - 1)
-		let l = il - i
+	/** Map it's generating parameter `t` to global arc length rate parameter `u`. */
+	mapT2U(globalT: number): number {
+		let {i, t} = this.mapGlobalT2Local(globalT)
+		let curve = this.curves[i]
+		let u = curve.mapT2U(t)
+		let index = (i + u) / this.curves.length
 
-		return {i, l}
+		return IntegralLookup.lookupYRateByXRate(index, this.getLengths())
 	}
 
 	/** 
-	 * Map a curve index and associated local parameter `u/t`
-	 * to global `u/t` parameter, according to comparing curve arc length.
+	 * Map a global generating parameter `t` to curve index and a local `u` parameter,
+	 * according to comparing curve arc length.
 	 */
-	mapLocalToGlobal(curveIndex: number, curveT: number): number {
+	mapGlobalT2Local(globalT: number): {i: number, t: number} {
+		let index = globalT * this.curves.length
+		let i = Math.floor(index)
+
+		if (i === this.curves.length) {
+			i -= 1
+		}
+
+		let t = index - i
+
+		return {i, t}
+	}
+
+	/** 
+	 * Map curve index and associated local generating parameter `t`
+	 * to global `t` parameter, according to comparing curve arc length.
+	 */
+	mapLocalT2Global(curveIndex: number, curveT: number): number {
+		return (curveIndex + curveT) / this.curves.length
+	}
+
+	/** 
+	 * Map a global arc length rate parameter `u` to curve index and a local `u` parameter,
+	 * according to comparing curve arc length.
+	 */
+	mapGlobalU2Local(globalU: number): {i: number, u: number} {
+		let il = IntegralLookup.lookupXRateByYRate(globalU, this.getLengths()) * this.curves.length
+		let i = Math.min(Math.floor(il), this.curves.length - 1)
+		let u = il - i
+
+		return {i, u}
+	}
+
+	/** 
+	 * Map curve index and associated local arc length rate parameter `u`
+	 * to global `u` parameter, according to comparing curve arc length.
+	 */
+	mapLocalU2Global(curveIndex: number, curveU: number): number {
 		let lengths = this.getLengths()
 		let startLength = curveIndex === 0 ? 0 : lengths[curveIndex - 1]
 		let endLength = lengths[curveIndex]
 
-		return MathUtils.mix(startLength, endLength, curveT) / this.getLength()
+		return MathUtils.mix(startLength, endLength, curveU) / this.getLength()
 	}
 	
 	/** Get point by global generating parameter `t` betweens 0~1. */
 	pointAt(globalT: number): Point {
-		let {i, l: t} = this.mapGlobalToLocal(globalT)
+		let {i, t} = this.mapGlobalT2Local(globalT)
 		return this.curves[i].pointAt(t)
 	}
 
 	/** Get point at arc length percentage, `u` betweens 0~1. */
 	spacedPointAt(globalU: number): Point {
-		let {i, l: u} = this.mapGlobalToLocal(globalU)
+		let {i, u} = this.mapGlobalU2Local(globalU)
 		return this.curves[i].spacedPointAt(u)
 	}
 
@@ -787,62 +828,99 @@ export class CurvePath {
 
 	/** 
 	 * Get a sequence of points based on divisions of equal-distanced `t`.
-	 * Note when `divisions` specified, it returns the default values from `getPoints`.
-	 * Otherwise it returns points by a global division.
+	 * Length of returned list is `divisions + 1`
+	 * Not it normally doesn't include edge points.
 	 */
-	getPoints(divisions?: number): Readonly<Point>[] {
-		let points: Point[] = []
+	getPoints(divisions: number): Readonly<Point>[] {
+		let points: Point[] = [this.startPoint]
 		
-		if (divisions) {
-			for (let d = 0; d <= divisions; d++) {
-				points.push(this.pointAt(d / divisions))
-			}
+		for (let d = 1; d < divisions; d++) {
+			points.push(this.pointAt(d / divisions))
 		}
-		else {
-			for (let curve of this.curves) {
-				points.push(...curve.getPoints())
-			}
-		}
+
+		points.push(this.endPoint)
 
 		return points
 	}
 
 	/** 
 	 * Get a sequence of points based on divisions of equal-arc length `u`.
-	 * Note when `divisions` specified, it returns the default values from `getPoints`.
-	 * Otherwise it returns points by a global division.
+	 * Length of returned list is `divisions + 1`
+	 * Not it normally doesn't include edge points.
 	 */
-	getSpacedPoints(divisions?: number): Readonly<Point>[] {
-		let points: Point[] = []
-		
-		if (divisions) {
-			for (let d = 0; d <= divisions; d++) {
-				points.push(this.spacedPointAt(d / divisions))
-			}
+	getSpacedPoints(divisions: number): Readonly<Point>[] {
+		let points: Point[] = [this.startPoint]
+
+		for (let d = 1; d < divisions; d++) {
+			points.push(this.spacedPointAt(d / divisions))
 		}
-		else {
-			for (let curve of this.curves) {
-				points.push(...curve.getSpacedPoints())
-			}
-		}
+
+		points.push(this.endPoint)
 
 		return points
 	}
 
 	/** 
-	 * Get a sequence of points based on divisions of equal-curvature value `e`.
+	 * Get a sequence of generating parameter t based on divisions of equal-distanced arc length rate `u`.
+	 * Length of returned list is `divisions + 1`.
+	 */
+	getSpacedTs(divisions: number): number[] {
+		let ts: number[] = [0]
+		
+		for (let d = 1; d < divisions; d++) {
+			let u = d / divisions
+			ts.push(this.mapU2T(u))
+		}
+
+		ts.push(1)
+
+		return ts
+	}
+
+	/** 
+	 * Get a sequence of generating parameter t based on divisions of curvature adaptive.
 	 * The bigger the curvature is, the more divisions to make.
 	 */
-	getEqualCurvaturePoints(segmentLengthCurvature?: number, scaling?: number): Readonly<Point>[] {
+	getCurvatureAdaptiveTs(maxPixelDiff: number = 0.25, scaling: number = 1): number[] {
 		if (this.curves.length === 0) {
 			return []
 		}
 
-		let points: Point[] = this.curves[0].getCurvatureAdaptivePoints(segmentLengthCurvature, scaling)
+		let ts: number[] = this.curves[0].getCurvatureAdaptiveTs(maxPixelDiff, scaling)
 
 		for (let i = 1; i < this.curves.length; i++) {
 			let curve = this.curves[i]
-			let curvePoints = curve.getCurvatureAdaptivePoints(segmentLengthCurvature, scaling)
+			let curveTs = curve.getCurvatureAdaptiveTs(maxPixelDiff, scaling)
+
+			for (let j = 0; i < curveTs.length; j++) {
+				let t = curveTs[j]
+
+				// Skip first point.
+				if (j === 0) {
+					continue
+				}
+
+				ts.push(this.mapLocalT2Global(i, t))
+			}
+		}
+
+		return ts
+	}
+
+	/** 
+	 * Get a sequence of points based on adaptive divisions.
+	 * The bigger the curvature is, the more divisions to make.
+	 */
+	getCurvatureAdaptivePoints(maxPixelDiff?: number, scaling?: number): Readonly<Point>[] {
+		if (this.curves.length === 0) {
+			return []
+		}
+
+		let points: Point[] = this.curves[0].getCurvatureAdaptivePoints(maxPixelDiff, scaling)
+
+		for (let i = 1; i < this.curves.length; i++) {
+			let curve = this.curves[i]
+			let curvePoints = curve.getCurvatureAdaptivePoints(maxPixelDiff, scaling)
 
 			for (let j = 0; i < curvePoints.length; j++) {
 				let p = curvePoints[j]
@@ -864,7 +942,7 @@ export class CurvePath {
 	 * The returned vector length also represent the changing speed of curve point based on t.
 	 */
 	tangentAt(globalT: number): Vector {
-		let {i, l: t} = this.mapGlobalToLocal(globalT)
+		let {i, t} = this.mapGlobalT2Local(globalT)
 		return this.curves[i].tangentAt(t)
 	}
 
@@ -873,13 +951,13 @@ export class CurvePath {
 	 * Normal vector direction is always equals tangent vector rotate 90° clockwise.
 	 */
 	normalAt(globalT: number, clockwiseFlag: 0 | 1): Vector {
-		let {i, l: t} = this.mapGlobalToLocal(globalT)
+		let {i, t} = this.mapGlobalT2Local(globalT)
 		return this.curves[i].normalAt(t, clockwiseFlag)
 	}
 
 	/** Get curvature, which means `1 / Curvature Radius`. */
 	curvatureAt(globalT: number) {
-		let {i, l: t} = this.mapGlobalToLocal(globalT)
+		let {i, t} = this.mapGlobalT2Local(globalT)
 		return this.curves[i].curvatureAt(t)
 	}
 
@@ -908,16 +986,16 @@ export class CurvePath {
 
 	/** Get partial curve by start and end generating parameters `t`. */
 	partOf(startT: number, endT: number): CurvePath {
-		let start = this.mapGlobalToLocal(startT)
-		let end = this.mapGlobalToLocal(endT)
+		let start = this.mapGlobalT2Local(startT)
+		let end = this.mapGlobalT2Local(endT)
 		let willClose = startT <= 0 && endT >= 1 && this.closed
 		let path = new CurvePath()
 
 		if (start.i === end.i) {
-			path.addCurve(this.curves[start.i].partOf(start.l, end.l))
+			path.addCurve(this.curves[start.i].partOf(start.t, end.t))
 		}
 		else {
-			path.addCurve(this.curves[start.i].partOf(start.l, 1))
+			path.addCurve(this.curves[start.i].partOf(start.t, 1))
 		}
 
 		for (let i = start.i + 1; i < end.i; i++) {
@@ -925,7 +1003,7 @@ export class CurvePath {
 		}
 
 		if (start.i != end.i) {
-			path.addCurve(this.curves[end.i].partOf(0, end.l))
+			path.addCurve(this.curves[end.i].partOf(0, end.t))
 		}
 
 		if (willClose) {
@@ -958,7 +1036,7 @@ export class CurvePath {
 
 		for (let i = 0; i < this.curves.length; i++) {
 
-			// Must be same type curves.
+			// Must be same type of curves.
 			if (this.curves[i].constructor !== curvePath.curves[i].constructor) {
 				return false
 			}
@@ -1030,7 +1108,7 @@ export class CurvePath {
 		return closestPoint!
 	}
 
-	/** Know X value, calc generating parameter `t`. */
+	/** Knows X value, calc generating parameter `t`. */
 	calcTsByX(x: number): number[] {
 		let ts: number[] = []
 
@@ -1038,13 +1116,13 @@ export class CurvePath {
 			let curve = this.curves[i]
 			let curveTs = curve.calcTsByX(x)
 
-			ts.push(...curveTs.map(t => this.mapLocalToGlobal(i, t)))
+			ts.push(...curveTs.map(t => this.mapLocalU2Global(i, t)))
 		}
 
 		return ts
 	}
 
-	/** Know Y value, calc generating parameter `t`. */
+	/** Knows Y value, calc generating parameter `t`. */
 	calcTsByY(y: number): number[] {
 		let ts: number[] = []
 
@@ -1052,7 +1130,7 @@ export class CurvePath {
 			let curve = this.curves[i]
 			let curveTs = curve.calcTsByY(y)
 			
-			ts.push(...curveTs.map(t => this.mapLocalToGlobal(i, t)))
+			ts.push(...curveTs.map(t => this.mapLocalU2Global(i, t)))
 		}
 
 		return ts

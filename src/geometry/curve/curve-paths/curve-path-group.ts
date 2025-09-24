@@ -4,7 +4,7 @@ import {CurvePath} from './curve-path'
 
 
 /** 
- * Represent a group of curve paths, which may not connect head to tail.
+ * Represent a group of curve paths, which may not connect from head to tail.
  * This is just a convenient API for containing several not continuous curves inside one object,
  * e.g., can output them into a single svg <path>.
  */

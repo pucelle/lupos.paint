@@ -14,12 +14,24 @@ export class LineCurve extends Curve {
 	}
 
 	/** `u` equals `t` for lines. */
-	mapT2U(u: number): number {
-		return u
+	mapT2U(t: number): number {
+		return t
+	}
+
+	pointAt(t: number) {
+		return this.startPoint.mix(this.endPoint, t)
 	}
 
 	tangentAt(): Vector {
 		return Vector.fromDiff(this.endPoint, this.startPoint)
+	}
+
+	curvatureAt(): number {
+		return 0
+	}
+
+	getCurvatureAdaptiveTs(): number[] {
+		return [0, 1]
 	}
 
 	getBox(): Box {
@@ -97,10 +109,6 @@ export class LineCurve extends Curve {
 
 	protected getUnFulfilledPartOf(startT: number, endT: number): this {
 		return new LineCurve(this.pointAt(startT), this.pointAt(endT)) as this
-	}
-
-	pointAt(t: number) {
-		return this.startPoint.mix(this.endPoint, t)
 	}
 
 	transform(matrix: Matrix): LineCurve {

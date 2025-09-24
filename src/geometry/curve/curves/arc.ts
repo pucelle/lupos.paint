@@ -91,6 +91,22 @@ export class ArcCurve extends Curve {
 		return t
 	}
 
+	pointAt(t: number): Point {
+
+		// θ = startAngle * (1 - t) + endAngle * (t)
+		// P(t) = Center + radius * (cosθ, isinθ)
+
+		let {center, startAngle, endAngle, radius} = this
+		let sita = MathUtils.mix(startAngle, endAngle, t)
+		let cosSita = Math.cos(sita)
+		let sinSita = Math.sin(sita)
+
+		let x = center.x + radius * cosSita
+		let y = center.y + radius * sinSita
+		
+		return new Point(x, y)
+	}
+
 	tangentAt(t: number): Vector {
 
 		// θ = startAngle * (1 - t) + endAngle * (t)
@@ -125,7 +141,7 @@ export class ArcCurve extends Curve {
 		}
 	}
 
-	curvatureAt(_t: number): number {
+	curvatureAt(): number {
 		return 1 / this.radius
 	}
 
@@ -144,19 +160,19 @@ export class ArcCurve extends Curve {
 		return divisions
 	}
 
-	// getCurvatureAdaptiveTs(maxPixelDiff: number = 0.25, scaling: number = 1): number[] {
-	// 	let divisions = this.getArcCurvatureAdaptiveDivisions(maxPixelDiff, scaling)
-	// 	let ts: number[] = [0]
+	getCurvatureAdaptiveTs(maxPixelDiff: number = 0.25, scaling: number = 1): number[] {
+		let divisions = this.getArcCurvatureAdaptiveDivisions(maxPixelDiff, scaling)
+		let ts: number[] = [0]
 		
-	// 	for (let d = 1; d < divisions; d++) {
-	// 		let t = d / divisions
-	// 		ts.push(t)
-	// 	}
+		for (let d = 1; d < divisions; d++) {
+			let t = d / divisions
+			ts.push(t)
+		}
 
-	// 	ts.push(1)
+		ts.push(1)
 
-	// 	return ts
-	// }
+		return ts
+	}
 
 	closestPointTo(point: Point): Readonly<Point> {
 		let {startAngle, endAngle, center} = this
@@ -248,22 +264,6 @@ export class ArcCurve extends Curve {
 		let max = Math.max(startAngle, endAngle)
 
 		return pickPeriodicValuesInRange(Math.PI / 2, Math.PI, min, max)
-	}
-
-	pointAt(t: number): Point {
-
-		// θ = startAngle * (1 - t) + endAngle * (t)
-		// P(t) = Center + radius * (cosθ, isinθ)
-
-		let {center, startAngle, endAngle, radius} = this
-		let sita = MathUtils.mix(startAngle, endAngle, t)
-		let cosSita = Math.cos(sita)
-		let sinSita = Math.sin(sita)
-
-		let x = center.x + radius * cosSita
-		let y = center.y + radius * sinSita
-		
-		return new Point(x, y)
 	}
 
 	transform(matrix: Matrix): ArcCurve | EllipseCurve {

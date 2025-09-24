@@ -31,11 +31,27 @@ export class CubicBezierCurve extends Curve {
 			y: p0.y * f0 + p1.y * f1 + p2.y * f2 + p3.y * f3,
 		}
 	}
+	
+	pointAt(t: number): Point {
 
+		// v = 1 - t
+		// P(t, ν) = ν^3P0 + 3tν^2P1 + 3t^2νP2 + t^3P3
+
+		let v = 1.0 - t
+		let f0 = v * v * v
+		let f1 = v * v * t * 3
+		let f2 = v * t * t * 3
+		let f3 = t * t * t
+
+		let {x, y} = this.interpolatePoints(f0, f1, f2, f3)
+
+		return new Point(x, y)
+	}
+	
 	tangentAt(t: number): Vector {
 		
 		// v = 1 - t
-		// P'(t, ν) = 3ν^2P0 + 3(ν^2 - 2tν)P1 + 3(-t^2 + 2tν)P2 + 3t^2P3
+		// P'(t, ν) = -3ν^2P0 + 3(ν^2 - 2tν)P1 + 3(-t^2 + 2tν)P2 + 3t^2P3
 
 		let v = 1 - t
 		let f0 =  -3 * v * v
@@ -116,23 +132,7 @@ export class CubicBezierCurve extends Curve {
 
 		return new CubicBezierCurve(startPoint, endPoint, control1, control2) as this
 	}
-	
-	pointAt(t: number): Point {
 
-		// v = 1 - t
-		// P(t, ν) = ν^3P0 + 3tν^2P1 + 3t^2νP2 + t^3P3
-
-		let v = 1.0 - t
-		let f0 = v * v * v
-		let f1 = v * v * t * 3
-		let f2 = v * t * t * 3
-		let f3 = t * t * t
-
-		let {x, y} = this.interpolatePoints(f0, f1, f2, f3)
-
-		return new Point(x, y)
-	}
-	
 	transform(matrix: Matrix): CubicBezierCurve {
 		let startPoint = matrix.transformPoint(this.startPoint)
 		let endPoint = matrix.transformPoint(this.endPoint)
@@ -165,10 +165,7 @@ export class CubicBezierCurve extends Curve {
 		}
 	}
 	
-	/** 
-	 * Mix with another cubic bezier curve.
-	 * Only `CubicBezierCurve` can mix.
-	 */
+	/** Mix with another cubic bezier curve. */
 	mix(curve: CubicBezierCurve, rate: number) {
 		return new CubicBezierCurve(
 			this.startPoint.mix(curve.startPoint, rate),

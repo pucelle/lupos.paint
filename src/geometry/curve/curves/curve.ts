@@ -14,8 +14,10 @@ export abstract class Curve {
 	 * Default division count.
 	 * This value is used to make an equivalent-t sampling,
 	 * It affects the precision of equal-length or equal-curvature division.
-	 * The default value `12` come from source codes of three.js, it fit for division of a 25px circle.
-	 * Normally no need to increase `12` because default division normally provides for testing.
+	 * 
+	 * The default value `12` come from source codes of three.js,
+	 * It causes about 0.8% error for circle, and about 0.25px error for 30px circle.
+	 * Normally no need to increase it because default division normally provides only for testing.
 	 */
 	lengthDivisions: number = 12
 
@@ -44,7 +46,7 @@ export abstract class Curve {
 
 	/**
 	 * Get an accumulated arc length list.
-	 * The got list length is `lengthDivisions`, end value is total length, and is cacheable.
+	 * The got length of list is `lengthDivisions`, end value is total length.
 	 */
 	getLengths(divisions: number = this.lengthDivisions): number[] {
 		if (this.cachedLengths?.length === divisions) {
@@ -119,7 +121,7 @@ export abstract class Curve {
 	 */
 	normalAt(t: number, clockwiseFlag: 0 | 1): Vector {
 		let tangent = this.tangentAt(t)
-		return tangent.rotateInDegreeSelf(clockwiseFlag ? -90 : 90).normalizeSelf()
+		return tangent.rotateSelf(clockwiseFlag ? Math.PI / 2 : -Math.PI / 2).normalizeSelf()
 	}
 
 	/** Get curvature, which means `1 / Curvature Radius`. */
@@ -133,26 +135,26 @@ export abstract class Curve {
 		// Curvature Radius R = ds / dθ
 		// C = dθ / ds
 
-		// let v1 = point2.diff(point1)
-		// let v2 = point3.diff(point2)
-		// let v1Length = v1.getLength()
-		// let v2Length = v2.getLength()
-		// let ds = v1Length
-		// let dSita = Math.acos(v1.dot(v2) / (v1Length * v2Length))
-		// return dSita / ds
-
 		// Solution 2:
 		// C = |x'y'' - x''y'| / (x'^2 + y'^2)^1.5
 		// x' = (x(t+Δt) - x(t)) / Δt
 		// x'' = (x(t+2Δt) + x(t) - 2*x(t+Δt)) / Δt^2
 		// ...
 
-		let xd1 = (point3.x - point2.x) * 1000
-		let xd2 = (point3.x + point1.x - point2.x * 2) * 1000000
-		let yd1 = (point3.y - point2.y) * 1000
-		let yd2 = (point3.y + point1.y - point2.y * 2) * 1000000
+		// Solution 3:
+		// C = 4S/abc
+		// S = ∑(i=1~n) 0.5 * (xi * yi⊕1 - xi⊕1 * yi)
 
-		return Math.abs(xd1 * yd2 - xd2 * yd1) / Math.pow(xd1 * xd1 + yd1 * yd1, 1.5)
+		let x1 = point1.x
+		let y1 = point1.y
+		let x2 = point2.x
+		let y2 = point2.y
+		let x3 = point3.x
+		let y3 = point3.y
+		let c = Math.sqrt((x3 - x1) ** 2 + (y3 - y1) ** 2)
+		
+		return 8 * Math.abs(x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+			/ (c ** 3)
 	}
 			
 	/** Get point at arc length percentage, `u` betweens 0~1. */
@@ -228,7 +230,7 @@ export abstract class Curve {
 	}
 
 	/** 
-	 * Get a sequence of points based on divisions of equal-curvature value `e`.
+	 * Get a sequence of points based on adaptive divisions.
 	 * The bigger the curvature is, the more divisions to make.
 	 * About `segmentCurvature`, reference to `getEqualCurvaturePoints`,
 	 */
@@ -250,7 +252,7 @@ export abstract class Curve {
 	 */
 	getCurvatureAdaptiveTs(maxPixelDiff: number = 0.25, scaling: number = 1): number[] {
 
-		// Let R be radius, Arc is Arc Length after subdivision
+		// Let R be radius, C = 1/R, Arc is Arc Length after subdivision
 		// MaxPixelDiff
 		// 		= R * (1 - cos(Arc / R / 2))
 		// 		≈ R * (Arc / R / 2)^2 / 2
@@ -261,16 +263,19 @@ export abstract class Curve {
 		// Arc < (MaxPixelDiff * 8R)^0.5
 
 		// TotalArcLength = ∫dArc
-		// 		= ∫(MaxPixelDiff * 8 / C)^0.5
-		// 		= (8 * MaxPixelDiff)^0.5 * Average(C^0.5) * DivisionCount
+		// 		= ∫(MaxPixelDiff * 8R)^0.5
+		// 		= (8 * MaxPixelDiff)^0.5 * Average(R^0.5) * DivisionCount
 
-		// DivisionCount = TotalArcLength / Average((MaxPixelDiff * 8 / C)^0.5)
+		// DivisionCount = TotalArcLength / Average((MaxPixelDiff * 8R)^0.5)
+		// 		≈ TotalArcLength / (MaxPixelDiff * 8)^0.5) * Average(C^0.5)
 		// Which also means when scaling for S, DivisionCount increased by S^0.5
 
 		let curvatureSqrtIntegral = this.generateCurvatureSqrtIntegral(this.lengthDivisions, scaling)
 		let totalCurvatureSqrt = curvatureSqrtIntegral[curvatureSqrtIntegral.length - 1]
-		let averageArcLength = Math.sqrt(8 * maxPixelDiff) * totalCurvatureSqrt / curvatureSqrtIntegral.length
-		let newDivisions = Math.max(Math.floor(this.getLength() / averageArcLength * Math.sqrt(scaling)), 1)
+		let averageCurvatureSqrt = totalCurvatureSqrt / curvatureSqrtIntegral.length
+		let newDivisions = this.getLength() / Math.sqrt(8 * maxPixelDiff) * averageCurvatureSqrt * Math.sqrt(scaling)
+		
+		newDivisions = Math.max(Math.floor(newDivisions), 1)
 		let ts: number[] = [0]
 
 		for (let d = 1; d < newDivisions; d++) {
@@ -287,15 +292,18 @@ export abstract class Curve {
 
 	/** 
 	 * Sampling curvature as `C`,
-	 * do `∫C^0.5dt` and make a accumulated list.
-	 * Result list length is `divisions`.
+	 * do `∫C^0.5dt` and make a integral graph.
+	 * Resulted list length is `divisions`.
 	 */
 	private generateCurvatureSqrtIntegral(divisions: number, scaling: number): number[] {
 		let accumulated: number[] = []
 		let total = 0
 
 		for (let d = 1; d <= divisions; d++) {
-			let t = d / divisions
+
+			// Must minus 0.5 here to balance.
+			let t = (d - 0.5) / divisions
+			
 			let curvature = this.curvatureAt(t)
 
 			// A infinite curvature is meaningless and will make the whole calculation wrong.

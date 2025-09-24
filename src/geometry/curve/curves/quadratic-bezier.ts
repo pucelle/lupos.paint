@@ -98,12 +98,12 @@ export class QuadraticBezierCurve extends Curve {
 	
 	pointAt(t: number) {
 
-		// P'(t, ν) = -2νP0 + 2(ν - t)P1 + 2tP2
+		// P(t, ν) = ν^2P0 + 2νtP1 + t^2P2
 
-		let v  = 1.0 - t
-		let f0 = -2 * v
-		let f1 = 2 * (v - t)
-		let f2 = 2 * t
+		let v  = 1 - t
+		let f0 = v * v
+		let f1 = 2 * v * t
+		let f2 = t * t
 
 		let {x, y} = this.interpolatePoints(f0, f1, f2)
 
@@ -150,7 +150,7 @@ export class QuadraticBezierCurve extends Curve {
 		}
 	}
 	
-	/** Mix with another cubic bezier curve. */
+	/** Mix with another quadratic bezier curve. */
 	mix(curve: QuadraticBezierCurve, rate: number) {
 		return new QuadraticBezierCurve(
 			this.startPoint.mix(curve.startPoint, rate),
