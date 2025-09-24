@@ -1,7 +1,7 @@
 import {Box, IntegralLookup, MathUtils, Matrix, Point, Vector} from '@pucelle/ff'
 import {CurveData, CurveType} from '../types'
 import {ArcCurve, Curve, CubicBezierCurve, LineCurve, QuadraticBezierCurve, EllipseCurve} from '../curves'
-import {makeSVGPathD, parseSVGPathD} from './helpers/svg-path-d'
+import {makeSVGPathD} from './helpers/svg-path-d'
 import {CurvePathMixer} from './helpers/path-mixer'
 
 
@@ -45,269 +45,6 @@ export class CurvePath {
 			path.closePath()
 		}
 
-		return path
-	}
-
-	/** 
-	 * Make a curve path from a SVG path "d" attribute.
-	 * Note `d` can only have a single `M` command.
-	 */
-	static fromSVGPathD(d: string): CurvePath | null {
-		let path = new CurvePath()
-
-		for (let {command, values} of parseSVGPathD(d)) {
-			if (command === 'M') {
-				if (values.length !== 2) {
-					throw new Error(`"M" command must have two values followed!`)
-				}
-				path.moveTo(values[0], values[1])
-			}
-			
-			else if (command === 'm') {
-				throw new Error(`Not support "m" command!`)
-			}
-
-			else if (command === 'Z' || command === 'z') {
-				path.closePath()
-			}
-
-			else if (command === 'L') {
-				if (values.length !== 2) {
-					throw new Error(`"L" command must have two values followed!`)
-				}
-				path.lineTo(values[0], values[1])
-			}
-
-			else if (command === 'l') {
-				if (values.length !== 2) {
-					throw new Error(`"l" command must have two values followed!`)
-				}
-				path.lineBy(values[0], values[1])
-			}
-
-			else if (command === 'H') {
-				if (values.length !== 1) {
-					throw new Error(`"H" command must have 1 value followed!`)
-				}
-				path.hLineTo(values[0])
-			}
-
-			else if (command === 'h') {
-				if (values.length !== 1) {
-					throw new Error(`"h" command must have 1 value followed!`)
-				}
-				path.hLineBy(values[0])
-			}
-
-			else if (command === 'V') {
-				if (values.length !== 1) {
-					throw new Error(`"V" command must have 1 value followed!`)
-				}
-				path.vLineTo(values[0])
-			}
-
-			else if (command === 'v') {
-				if (values.length !== 1) {
-					throw new Error(`"v" command must have 1 value followed!`)
-				}
-				path.vLineBy(values[0])
-			}
-
-			else if (command === 'C') {
-				if (values.length !== 6) {
-					throw new Error(`"C" command must have 6 values followed!`)
-				}
-				path.cubicBezierTo(
-					values[4],
-					values[5],
-					values[0],
-					values[1],
-					values[2],
-					values[3]
-				)
-			}
-
-			else if (command === 'c') {
-				if (values.length !== 6) {
-					throw new Error(`"c" command must have 6 values followed!`)
-				}
-				path.cubicBezierBy(
-					values[4],
-					values[5],
-					values[0],
-					values[1],
-					values[2],
-					values[3]
-				)
-			}
-
-			else if (command === 'S') {
-				if (values.length !== 4) {
-					throw new Error(`"S" command must have 4 values followed!`)
-				}
-
-				let lastCurve = path.curves[path.curves.length - 1]
-				if (!lastCurve || !(lastCurve instanceof CubicBezierCurve)) {
-					throw new Error(`"S" command must follow a cubic curve!`)
-				}
-
-				let lastRelativeControlPoint2 = Vector.fromDiff(lastCurve.controlPoint2, lastCurve.endPoint)
-
-				path.cubicBezierTo(
-					values[2],
-					values[3],
-					values[2] - lastRelativeControlPoint2.x,
-					values[3] - lastRelativeControlPoint2.y,
-					values[0],
-					values[1]
-				)
-			}
-
-			else if (command === 's') {
-				if (values.length !== 4) {
-					throw new Error(`"s" command must have 4 values followed!`)
-				}
-
-				let lastCurve = path.curves[path.curves.length - 1]
-				if (!lastCurve || !(lastCurve instanceof CubicBezierCurve)) {
-					throw new Error(`"S" command must follow a cubic curve!`)
-				}
-
-				let lastRelativeControlPoint2 = Vector.fromDiff(lastCurve.controlPoint2, lastCurve.endPoint)
-
-				path.cubicBezierBy(
-					values[2],
-					values[3],
-					-lastRelativeControlPoint2.x,
-					-lastRelativeControlPoint2.y,
-					values[0],
-					values[1]
-				)
-			}
-
-			else if (command === 'Q') {
-				if (values.length !== 4) {
-					throw new Error(`"Q" command must have 4 values followed!`)
-				}
-				path.quadraticBezierTo(
-					values[2],
-					values[3],
-					values[0],
-					values[1]
-				)
-			}
-
-			else if (command === 'q') {
-				if (values.length !== 4) {
-					throw new Error(`"q" command must have 4 values followed!`)
-				}
-				path.quadraticBezierBy(
-					values[2],
-					values[3],
-					values[0],
-					values[1]
-				)
-			}
-
-			else if (command === 'T') {
-				if (values.length !== 2) {
-					throw new Error(`"T" command must have 2 values followed!`)
-				}
-
-				let lastCurve = path.curves[path.curves.length - 1]
-				if (!lastCurve || !(lastCurve instanceof QuadraticBezierCurve)) {
-					throw new Error(`"T" command must follow a quadratic curve!`)
-				}
-
-				let lastRelativeControlPoint = Vector.fromDiff(lastCurve.controlPoint, lastCurve.endPoint)
-
-				path.quadraticBezierTo(
-					values[0],
-					values[1],
-					values[0] - lastRelativeControlPoint.x,
-					values[1] - lastRelativeControlPoint.y
-				)
-			}
-
-			else if (command === 't') {
-				if (values.length !== 2) {
-					throw new Error(`"t" command must have 2 values followed!`)
-				}
-
-				let lastCurve = path.curves[path.curves.length - 1]
-				if (!lastCurve || !(lastCurve instanceof QuadraticBezierCurve)) {
-					throw new Error(`"t" command must follow a quadratic curve!`)
-				}
-
-				let lastRelativeControlPoint = Vector.fromDiff(lastCurve.controlPoint, lastCurve.endPoint)
-
-				path.quadraticBezierBy(
-					values[0],
-					values[1],
-					-lastRelativeControlPoint.x,
-					-lastRelativeControlPoint.y
-				)
-			}
-
-			else if (command === 'A') {
-				if (values.length !== 7) {
-					throw new Error(`"A" command must have 7 values followed!`)
-				}
-
-				if (values[0] === values[1]) {
-					path.arcTo(
-						values[5],
-						values[6],
-						values[0],
-						values[3] as 0 | 1,
-						values[4] as 0 | 1,
-					)
-				}
-				else {
-					path.ellipseTo(
-						values[5],
-						values[6],
-						values[0],
-						values[1],
-						values[2],
-						values[3] as 0 | 1,
-						values[4] as 0 | 1,
-					)
-				}
-			}
-
-			else if (command === 'a') {
-				if (values.length !== 7) {
-					throw new Error(`"a" command must have 7 values followed!`)
-				}
-
-				if (values[0] === values[1]) {
-					path.arcBy(
-						values[5],
-						values[6],
-						values[0],
-						values[3] as 0 | 1,
-						values[4] as 0 | 1,
-					)
-				}
-				else {
-					path.ellipseBy(
-						values[5],
-						values[6],
-						values[0],
-						values[1],
-						values[2],
-						values[3] as 0 | 1,
-						values[4] as 0 | 1,
-					)
-				}
-			}
-
-			else {
-				throw new Error(`"${command}" is not a valid command!`)
-			}
-		}
-		
 		return path
 	}
 
@@ -1211,44 +948,31 @@ export class CurvePath {
 
 	/** 
 	 * Get the distance from a point to curve path.
-	 * Returns negative value if point inside fill area of curve path.
+	 * Returns negative value if `considerFill=true` and point inside fill area of curve path.
 	 */
-	getDistance(point: Point, strokeWidth: number, filled: boolean, fillRule: 'nonzero' | 'evenodd' = 'nonzero'): number {
-		let willFill = this.closed && filled
-		let willStroke = strokeWidth > 0
-		let halfStrokeWidth = strokeWidth / 2
+	getDistance(point: Point, considerFill: boolean = true, fillRule: 'nonzero' | 'evenodd' = 'nonzero'): number {
+		let willFill = this.closed && considerFill
 		let distance = Infinity
 		let intersectionCount = willFill ? this.getRadialLineIntersectionCount(point) : 0
 		let inside = willFill ? this.getInsideFromIntersectionCount(intersectionCount, fillRule) : false
-		let intersectionFlag = intersectionCount % 2 === 0 ? -1 : 1
 
 		for (let curve of this.curves) {
-			if (!curve.getBox()?.containsPointAfterExpanded(point, halfStrokeWidth)) {
-				continue
-			}
-
 			let closestPoint = curve.closestPointTo(point)
 			let pointDistance = Vector.fromDiff(closestPoint, point).getLength()
 
-			// Compare with outer stroke edge.
-			if (willFill) {
-				let distanceToOuterStrokeEdge = pointDistance + halfStrokeWidth * intersectionFlag
-				distance = Math.min(distance, Math.abs(distanceToOuterStrokeEdge))
-			}
-
-			// Compare with stroke edge center.
-			if (willStroke) {
-				let distanceToStrokeEdge = pointDistance - halfStrokeWidth
-				inside = inside || distanceToStrokeEdge < 0
-				distance = Math.min(distance, Math.abs(distanceToStrokeEdge))
-			}
+			distance = Math.min(distance, Math.abs(pointDistance))
 		}
 
 		return inside ? -distance : distance
 	}
 
-	/** Convert to svg path d property. */
+	/** Convert to svg path `d` property. */
 	toSVGPathD(): string {
 		return makeSVGPathD(this.toJSON())
+	}
+
+	/** Clone current curve path. */
+	clone(): CurvePath {
+		return CurvePath.fromCurves(this.curves)!
 	}
 }

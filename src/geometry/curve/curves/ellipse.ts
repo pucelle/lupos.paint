@@ -9,7 +9,7 @@ import {CurveType, EllipseData} from '../types'
 export class EllipseCurve extends Curve {
 
 	/** Ellipse radius. */
-	readonly radius: Vector
+	readonly radius: Readonly<Vector>
 
 	/** X axis rotation in clockwise direction. */
 	readonly xAxisAngle: number

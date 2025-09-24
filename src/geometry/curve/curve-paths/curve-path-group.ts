@@ -1,6 +1,8 @@
-import {Box, Matrix, Point} from '@pucelle/ff'
+import {Box, Matrix, Point, Vector} from '@pucelle/ff'
 import {CurveData, CurveType} from '../types'
 import {CurvePath} from './curve-path'
+import {parseSVGPathD} from './helpers/svg-path-d'
+import {CubicBezierCurve, QuadraticBezierCurve} from '../curves'
 
 
 /** 
@@ -44,6 +46,280 @@ export class CurvePathGroup {
 		}
 
 		return path
+	}
+
+	/** 
+	 * Make a curve path group from a SVG path "d" attribute.
+	 * `d` can only have multiple `M` command.
+	 */
+	static fromSVGPathD(d: string): CurvePathGroup | null {
+		let group = new CurvePathGroup()
+		let path = new CurvePath()
+		let closed = false
+
+		group.addCurvePath(path)
+
+		for (let {command, values} of parseSVGPathD(d)) {
+			if (closed) {
+				path = new CurvePath()
+				group.addCurvePath(path)
+				closed = false
+			}
+
+			if (command === 'M') {
+				if (values.length !== 2) {
+					throw new Error(`"M" command must have two values followed!`)
+				}
+				path.moveTo(values[0], values[1])
+			}
+			
+			else if (command === 'm') {
+				throw new Error(`Not support "m" command!`)
+			}
+
+			else if (command === 'Z' || command === 'z') {
+				path.closePath()
+				closed = true
+			}
+
+			else if (command === 'L') {
+				if (values.length !== 2) {
+					throw new Error(`"L" command must have two values followed!`)
+				}
+				path.lineTo(values[0], values[1])
+			}
+
+			else if (command === 'l') {
+				if (values.length !== 2) {
+					throw new Error(`"l" command must have two values followed!`)
+				}
+				path.lineBy(values[0], values[1])
+			}
+
+			else if (command === 'H') {
+				if (values.length !== 1) {
+					throw new Error(`"H" command must have 1 value followed!`)
+				}
+				path.hLineTo(values[0])
+			}
+
+			else if (command === 'h') {
+				if (values.length !== 1) {
+					throw new Error(`"h" command must have 1 value followed!`)
+				}
+				path.hLineBy(values[0])
+			}
+
+			else if (command === 'V') {
+				if (values.length !== 1) {
+					throw new Error(`"V" command must have 1 value followed!`)
+				}
+				path.vLineTo(values[0])
+			}
+
+			else if (command === 'v') {
+				if (values.length !== 1) {
+					throw new Error(`"v" command must have 1 value followed!`)
+				}
+				path.vLineBy(values[0])
+			}
+
+			else if (command === 'C') {
+				if (values.length !== 6) {
+					throw new Error(`"C" command must have 6 values followed!`)
+				}
+				path.cubicBezierTo(
+					values[4],
+					values[5],
+					values[0],
+					values[1],
+					values[2],
+					values[3]
+				)
+			}
+
+			else if (command === 'c') {
+				if (values.length !== 6) {
+					throw new Error(`"c" command must have 6 values followed!`)
+				}
+				path.cubicBezierBy(
+					values[4],
+					values[5],
+					values[0],
+					values[1],
+					values[2],
+					values[3]
+				)
+			}
+
+			else if (command === 'S') {
+				if (values.length !== 4) {
+					throw new Error(`"S" command must have 4 values followed!`)
+				}
+
+				let lastCurve = path.curves[path.curves.length - 1]
+				if (!lastCurve || !(lastCurve instanceof CubicBezierCurve)) {
+					throw new Error(`"S" command must follow a cubic curve!`)
+				}
+
+				let lastRelativeControlPoint2 = Vector.fromDiff(lastCurve.controlPoint2, lastCurve.endPoint)
+
+				path.cubicBezierTo(
+					values[2],
+					values[3],
+					values[2] - lastRelativeControlPoint2.x,
+					values[3] - lastRelativeControlPoint2.y,
+					values[0],
+					values[1]
+				)
+			}
+
+			else if (command === 's') {
+				if (values.length !== 4) {
+					throw new Error(`"s" command must have 4 values followed!`)
+				}
+
+				let lastCurve = path.curves[path.curves.length - 1]
+				if (!lastCurve || !(lastCurve instanceof CubicBezierCurve)) {
+					throw new Error(`"S" command must follow a cubic curve!`)
+				}
+
+				let lastRelativeControlPoint2 = Vector.fromDiff(lastCurve.controlPoint2, lastCurve.endPoint)
+
+				path.cubicBezierBy(
+					values[2],
+					values[3],
+					-lastRelativeControlPoint2.x,
+					-lastRelativeControlPoint2.y,
+					values[0],
+					values[1]
+				)
+			}
+
+			else if (command === 'Q') {
+				if (values.length !== 4) {
+					throw new Error(`"Q" command must have 4 values followed!`)
+				}
+				path.quadraticBezierTo(
+					values[2],
+					values[3],
+					values[0],
+					values[1]
+				)
+			}
+
+			else if (command === 'q') {
+				if (values.length !== 4) {
+					throw new Error(`"q" command must have 4 values followed!`)
+				}
+				path.quadraticBezierBy(
+					values[2],
+					values[3],
+					values[0],
+					values[1]
+				)
+			}
+
+			else if (command === 'T') {
+				if (values.length !== 2) {
+					throw new Error(`"T" command must have 2 values followed!`)
+				}
+
+				let lastCurve = path.curves[path.curves.length - 1]
+				if (!lastCurve || !(lastCurve instanceof QuadraticBezierCurve)) {
+					throw new Error(`"T" command must follow a quadratic curve!`)
+				}
+
+				let lastRelativeControlPoint = Vector.fromDiff(lastCurve.controlPoint, lastCurve.endPoint)
+
+				path.quadraticBezierTo(
+					values[0],
+					values[1],
+					values[0] - lastRelativeControlPoint.x,
+					values[1] - lastRelativeControlPoint.y
+				)
+			}
+
+			else if (command === 't') {
+				if (values.length !== 2) {
+					throw new Error(`"t" command must have 2 values followed!`)
+				}
+
+				let lastCurve = path.curves[path.curves.length - 1]
+				if (!lastCurve || !(lastCurve instanceof QuadraticBezierCurve)) {
+					throw new Error(`"t" command must follow a quadratic curve!`)
+				}
+
+				let lastRelativeControlPoint = Vector.fromDiff(lastCurve.controlPoint, lastCurve.endPoint)
+
+				path.quadraticBezierBy(
+					values[0],
+					values[1],
+					-lastRelativeControlPoint.x,
+					-lastRelativeControlPoint.y
+				)
+			}
+
+			else if (command === 'A') {
+				if (values.length !== 7) {
+					throw new Error(`"A" command must have 7 values followed!`)
+				}
+
+				if (values[0] === values[1]) {
+					path.arcTo(
+						values[5],
+						values[6],
+						values[0],
+						values[3] as 0 | 1,
+						values[4] as 0 | 1,
+					)
+				}
+				else {
+					path.ellipseTo(
+						values[5],
+						values[6],
+						values[0],
+						values[1],
+						values[2],
+						values[3] as 0 | 1,
+						values[4] as 0 | 1,
+					)
+				}
+			}
+
+			else if (command === 'a') {
+				if (values.length !== 7) {
+					throw new Error(`"a" command must have 7 values followed!`)
+				}
+
+				if (values[0] === values[1]) {
+					path.arcBy(
+						values[5],
+						values[6],
+						values[0],
+						values[3] as 0 | 1,
+						values[4] as 0 | 1,
+					)
+				}
+				else {
+					path.ellipseBy(
+						values[5],
+						values[6],
+						values[0],
+						values[1],
+						values[2],
+						values[3] as 0 | 1,
+						values[4] as 0 | 1,
+					)
+				}
+			}
+
+			else {
+				throw new Error(`"${command}" is not a valid command!`)
+			}
+		}
+		
+		return group
 	}
 
 
@@ -353,5 +629,21 @@ export class CurvePathGroup {
 		}
 
 		return false
+	}
+
+	/** Convert to svg path `d` property. */
+	toSVGPathD(): string {
+		let d = ''
+
+		for (let path of this.curvePaths) {
+			d += path.toSVGPathD()
+		}
+
+		return d
+	}
+
+	/** Clone current curve path. */
+	clone(): CurvePathGroup {
+		return CurvePathGroup.fromCurvePaths(this.curvePaths)!
 	}
 }

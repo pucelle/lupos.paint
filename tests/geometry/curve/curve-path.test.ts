@@ -1,5 +1,5 @@
 import {Point} from '@pucelle/ff'
-import {CurvePath, LineCurve} from '../../../src/geometry'
+import {CurvePath, CurvePathGroup, LineCurve} from '../../../src/geometry'
 
 
 function expectCloseTo(o: any, compare: any) {
@@ -81,8 +81,16 @@ describe('Test CurvePath', () => {
 		expectCloseTo(path.closestPointTo(new Point(0.5, 0.5)), {x: 0.5, y: 0})
 		expectCloseTo(path.calcTsByX(0.5), [0.16666666666666666])
 		expectCloseTo(path.calcTsByY(0.5), [0.5])
+		
+		expect(path.getDistance(new Point(2, 1))).toBeCloseTo(1)
 
 		expect(path.toSVGPathD()).toBe('M0 0L1 0L1 2')
-		expect(CurvePath.fromSVGPathD(path.toSVGPathD())!.equals(path)).toBeTruthy()
+		expect(CurvePathGroup.fromSVGPathD(path.toSVGPathD())?.curvePaths[0]!.equals(path)).toBeTruthy()
+
+
+		let path2 = path.clone()
+		path2.closePath()
+
+		expect(path2.getDistance(new Point(0.5, 0.5))).toBeCloseTo(-0.22360679774997896)
 	})
 })

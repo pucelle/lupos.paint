@@ -8,7 +8,7 @@ import {Curve} from './curve'
 export class QuadraticBezierCurve extends Curve {
 
 	/** Control point. */
-	readonly controlPoint: Point
+	readonly controlPoint: Readonly<Point>
 
 	constructor(start: Point, end: Point, control: Point) {
 		super(start, end)

@@ -7,10 +7,10 @@ import {Curve} from './curve'
 export class CubicBezierCurve extends Curve {
 
 	/** Control point 1. */
-	readonly controlPoint1: Point
+	readonly controlPoint1: Readonly<Point>
 
 	/** Control point 2. */
-	readonly controlPoint2: Point
+	readonly controlPoint2: Readonly<Point>
 
 	constructor(start: Point, end: Point, control1: Point, control2: Point) {
 		super(start, end)
@@ -164,7 +164,7 @@ export class CubicBezierCurve extends Curve {
 			cy2: this.controlPoint2.y,
 		}
 	}
-	
+
 	/** Mix with another cubic bezier curve. */
 	mix(curve: CubicBezierCurve, rate: number) {
 		return new CubicBezierCurve(
