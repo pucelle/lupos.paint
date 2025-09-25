@@ -15,7 +15,8 @@ interface SmoothCorner {
 	/** 
 	 * How much the smooth curve close to arc, `0~1`.
 	 * If 1, be pure arc.
-	 * If 0, be pure quadratic bezier curve. Default.
+	 * If 0, be pure quadratic bezier curve.
+	 * If a curve is nearly 100% transformed to smooth, then it's arcRate is nearly `1`.
 	 */
 	arcRate: number
 }

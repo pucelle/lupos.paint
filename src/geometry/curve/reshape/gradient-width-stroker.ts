@@ -20,10 +20,15 @@ interface DashPart {
 export class GradientWidthStroker {
 
 	private curvePath: CurvePath
-	private indexRange: [number, number] | null
+
+	/** Affects curve division. */
+	private viewScaling: number
+
+	private curveIndexRange: [number, number] | undefined
 	private startWidth: number
 	private endWidth: number
 	private power: number
+
 	private lineCap: 'butt' | 'round' | 'square'
 	private lineJoin: 'bevel' | 'round' | 'miter'
 	private miterLimit: number
@@ -34,7 +39,8 @@ export class GradientWidthStroker {
 
 	constructor(
 		curvePath: CurvePath,
-		indexRange: [number, number] | null,
+		viewScaling: number = 1,
+		curveIndexRange: [number, number] | undefined,
 		startWidth: number,
 		endWidth: number,
 		power: number = 1,
@@ -42,10 +48,11 @@ export class GradientWidthStroker {
 		lineJoin: 'bevel' | 'round' | 'miter' = 'miter',
 		miterLimit: number = 10,
 		dashArray: number[] | null = null,
-		dashOffset: number = 0
+		dashOffset: number = 0,
 	) {
 		this.curvePath = curvePath
-		this.indexRange = indexRange
+		this.viewScaling = viewScaling
+		this.curveIndexRange = curveIndexRange
 		this.startWidth = startWidth
 		this.endWidth = endWidth
 		this.power = power
@@ -59,9 +66,9 @@ export class GradientWidthStroker {
 
 	/** Make the length of the part that should do gradient stroke. */
 	private initGradientLengths() {
-		if (this.indexRange) {
-			let startRange = Math.min(this.indexRange[0], this.curvePath.curves.length)
-			let endRange = Math.min(this.indexRange[1], this.curvePath.curves.length)
+		if (this.curveIndexRange) {
+			let startRange = Math.min(this.curveIndexRange[0], this.curvePath.curves.length)
+			let endRange = Math.min(this.curveIndexRange[1], this.curvePath.curves.length)
 		
 			for (let i = 0; i < startRange; i++) {
 				this.lengthBeforeGradient += this.curvePath.curves[i].getLength()
@@ -78,7 +85,7 @@ export class GradientWidthStroker {
 
 	/** Get gradient rate by current arc length. */
 	private getGradientRateAtLength(length: number): number {
-		if (this.indexRange) {
+		if (this.curveIndexRange) {
 			if (length < this.lengthBeforeGradient) {
 				return 0
 			}
@@ -206,7 +213,7 @@ export class GradientWidthStroker {
 		let points: Point[] = []
 		let left: Point[] = []
 		let right: Point[] = []
-		let ts: number[] = curve.getCurvatureAdaptiveTs()
+		let ts: number[] = curve.getCurvatureAdaptiveTs(undefined, this.viewScaling)
 
 		for (let t of ts) {
 			let normal = curve.tangentAt(t).normalizeSelf()
@@ -256,12 +263,12 @@ export class GradientWidthStroker {
 
 				curves.push(new ArcCurve(radial1.point, radial2.point, radius, 0, rotationFlag))
 			}
+
 			else if (this.lineJoin === 'bevel') {
 				curves.push(new LineCurve(list1[list1.length - 1], list2[0]))
 			}
 
-			// Handle miter.
-			else {
+			else if (this.lineJoin === 'miter') {
 				let radial1 = makeRadial(list1, list1.length - 1, 1)
 				let radial2 = makeRadial(list2, 0, -1)
 				let miterLimit = this.miterLimit
@@ -319,7 +326,7 @@ export class GradientWidthStroker {
 				)
 			)
 		}
-		else {
+		else if (this.lineCap === 'butt') {
 			curves.push(
 				new LineCurve(
 					segments1[segments1.length - 1],

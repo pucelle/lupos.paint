@@ -1,10 +1,10 @@
 import {CurvePath, CurvePathGroup} from '../curve-paths'
 import {GradientWidthStroker} from './gradient-width-stroker'
 import {CurvePathSmoother} from './smoother'
-import {CurvePathWiggler} from './wiggle'
 
 
-interface PaintStrokeStyleData {
+/** For reshape stroking. */
+export interface ReshapeStrokeStyleData {
 
 	/** Default value is `butt`. */
 	strokeLineCap?: 'butt' | 'round' | 'square'
@@ -29,35 +29,17 @@ export interface PathReshapeOptions {
 		radius: number
 
 		/** 
-		 * If want only partial corners, specifies their indices.
+		 * If want to apply smooth to partial corners, specifies their indices.
 		 * Index `0` means the start point / corner.
 		 */
 		cornerIndices?: number[]
 	}
 
-	/** Make the path wave like. */
-	wave?: {
-
-		/**Wave length of each upper or lower part. */
-		waveLength: number
-
-		/** Wave amplitude rate based on `waveLength`.*/
-		amplitudeRate: number
-
-		/** 
-		 * Wave smooth rate.
-		 * `0` result in wave becomes polyline.
-		 * `1` result in wave becomes arc sequence.
-		 * Default value is `0`.
-		 */
-		smoothRate?: number
-	}
-
 	/** Reshape path with gradient stroking, normally tapered line. */
-	gradientStrokeWidth?: {
+	gradientStroking?: {
 
 		/** At the specified index range pair do gradient stroke. */
-		indexRange: [number, number] | null
+		indexRange?: [number, number]
 
 		/** The start width of the gradient part. */
 		startWidth: number
@@ -65,7 +47,10 @@ export interface PathReshapeOptions {
 		/** The end width of the gradient part. */
 		endWidth: number
 
-		/** The gradient width changing rate based on `LengthRate^power`. */
+		/** 
+		 * The gradient width changing rate based on `LengthRate^power`.
+		 * Default value is `1`.
+		 */
 		power?: number
 	}
 }
@@ -76,17 +61,23 @@ export interface ReshapedPaths {
 	/** Without gradient stroking */
 	continuous: CurvePath
 
+	/** Reshaped result. */
 	result: CurvePath | CurvePathGroup
 }
 
 
 /** 
  * Reshape a curve path:
+ * 	 partial: pick partial of whole path.
  *   smooth: smooth corners.
- *   wave: make the path wave like.
- *   gradientStrokeWidth: to a tapered line
+ *   gradientStroking: to a tapered line
  */
-export function reshapePath(path: CurvePath, style: PaintStrokeStyleData, options: PathReshapeOptions): ReshapedPaths {
+export function reshapeCurvePath(
+	path: CurvePath,
+	viewScaling: number,
+	style: ReshapeStrokeStyleData = {},
+	options: PathReshapeOptions = {}
+): ReshapedPaths {
 	let continuous: CurvePath = path
 
 	if (options.partial) {
@@ -97,19 +88,16 @@ export function reshapePath(path: CurvePath, style: PaintStrokeStyleData, option
 		continuous = new CurvePathSmoother(path, options.smooth.radius, options.smooth.cornerIndices).generate()
 	}
 
-	if (options.wave) {
-		continuous = new CurvePathWiggler(path, options.wave.waveLength, options.wave.amplitudeRate, options.wave.smoothRate).generate()
-	}
-
 	let result: CurvePath | CurvePathGroup = continuous
 
-	if (options.gradientStrokeWidth) {
+	if (options.gradientStroking) {
 		result = new GradientWidthStroker(
 			path,
-			options.gradientStrokeWidth.indexRange,
-			options.gradientStrokeWidth.startWidth,
-			options.gradientStrokeWidth.endWidth,
-			options.gradientStrokeWidth.power,
+			viewScaling,
+			options.gradientStroking.indexRange,
+			options.gradientStroking.startWidth,
+			options.gradientStroking.endWidth,
+			options.gradientStroking.power,
 			style.strokeLineCap,
 			style.strokeLineJoin,
 			style.strokeMiterLimit,

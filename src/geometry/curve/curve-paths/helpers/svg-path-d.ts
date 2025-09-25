@@ -1,3 +1,4 @@
+import {NumberUtils} from '@pucelle/ff'
 import {CurveData, CurveType} from '../../types'
 
 
@@ -49,46 +50,46 @@ export function makeSVGPathD(curveData: Readonly<CurveData[]>): string {
 
 function makeSVGPathPiece(piece: CurveData): string {
 	if (piece.type === CurveType.MoveTo) {
-		let x = piece.x
-		let y = piece.y
+		let x = NumberUtils.toDecimal(piece.x, 4)
+		let y = NumberUtils.toDecimal(piece.y, 4)
 
 		return `M${x} ${y}`
 	}
 	else if (piece.type === CurveType.ArcTo) {
 		let {r, largeArcFlag, clockwiseFlag} = piece
-		let x = piece.x
-		let y = piece.y
+		let x = NumberUtils.toDecimal(piece.x, 4)
+		let y = NumberUtils.toDecimal(piece.y, 4)
 
 		return `A${r} ${r} 0 ${largeArcFlag} ${clockwiseFlag} ${x} ${y}`
 	}
 	else if (piece.type === CurveType.EllipseTo) {
 		let {rx, ry, largeArcFlag, clockwiseFlag} = piece
-		let x = piece.x
-		let y = piece.y
+		let x = NumberUtils.toDecimal(piece.x, 4)
+		let y = NumberUtils.toDecimal(piece.y, 4)
 
 		return `A${rx} ${ry} 0 ${largeArcFlag} ${clockwiseFlag} ${x} ${y}`
 	}
 	else if (piece.type === CurveType.CubicBezierTo) {
-		let cx1 = piece.cx1
-		let cy1 = piece.cy1
-		let cx2 = piece.cx2
-		let cy2 = piece.cy2
-		let x = piece.x
-		let y = piece.y
+		let cx1 = NumberUtils.toDecimal(piece.cx1, 4)
+		let cy1 = NumberUtils.toDecimal(piece.cy1, 4)
+		let cx2 = NumberUtils.toDecimal(piece.cx2, 4)
+		let cy2 = NumberUtils.toDecimal(piece.cy2, 4)
+		let x = NumberUtils.toDecimal(piece.x, 4)
+		let y = NumberUtils.toDecimal(piece.y, 4)
 
 		return `C${cx1} ${cy1} ${cx2} ${cy2} ${x} ${y}`
 	}
 	else if (piece.type === CurveType.LineTo) {
-		let x = piece.x
-		let y = piece.y
+		let x = NumberUtils.toDecimal(piece.x, 4)
+		let y = NumberUtils.toDecimal(piece.y, 4)
 
 		return `L${x} ${y}`
 	}
 	else if (piece.type === CurveType.QuadraticBezierTo) {
-		let cx = piece.cx
-		let cy = piece.cy
-		let x = piece.x
-		let y = piece.y
+		let cx = NumberUtils.toDecimal(piece.cx, 4)
+		let cy = NumberUtils.toDecimal(piece.cy, 4)
+		let x = NumberUtils.toDecimal(piece.x, 4)
+		let y = NumberUtils.toDecimal(piece.y, 4)
 
 		return `Q${cx} ${cy} ${x} ${y}`
 	}
