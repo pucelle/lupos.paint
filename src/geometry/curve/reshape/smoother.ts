@@ -9,8 +9,9 @@ interface SmoothCorner {
     rightT: number
 	leftPoint: Point
 	rightPoint: Point
+	leftRadius: number
+	rightRadius: number
     qPoint: Point | null
-	radius: number
 
 	/** 
 	 * How much the smooth curve close to arc, `0~1`.
@@ -117,16 +118,13 @@ export class CurvePathSmoother {
 		let rightLength = right.getLength()
 		let maxLeftRadius = !closed && modIndex === 1 ? leftLength : leftLength / 2
 		let maxRightRadius = !closed && modIndex === this.curvePath.curves.length - 1 ? rightLength : rightLength / 2
-		let radius = Math.min(this.radius, maxLeftRadius, maxRightRadius)
 
-		// Radius is too small, no need to smooth.
-		if (radius < this.radius * 0.1) {
-			return null
-		}
+		let leftRadius = Math.min(this.radius, maxLeftRadius)
+		let rightRadius = Math.min(this.radius, maxRightRadius)
 
 		// Get start and end point after making a smooth arc.
-		let leftT = left.tAtLength(leftLength - radius)
-		let rightT = right.tAtLength(radius)
+		let leftT = left.tAtLength(leftLength - leftRadius)
+		let rightT = right.tAtLength(rightRadius)
 
 		let leftPoint = left.pointAt(leftT)
 		let rightPoint = right.pointAt(rightT)
@@ -144,9 +142,10 @@ export class CurvePathSmoother {
 			rightT,
 			leftPoint,
 			rightPoint,
+			leftRadius,
+			rightRadius,
 			qPoint,
-			radius,
-
+	
 			// Process it next step.
 			arcRate: 0,
 		}
@@ -200,16 +199,16 @@ export class CurvePathSmoother {
 		let rightCurve = this.curvePath.curves[this.normalizeIndex(index)]
 		
 		// Rest length after excluding smooth length.
-		let leftRest = leftCurve.getLength() - curr.radius - (prev ? prev.radius : 0)
+		let leftRest = leftCurve.getLength() - curr.leftRadius - (prev ? prev.rightRadius : 0)
 		leftRest = Math.max(0, leftRest)
 
-		let rightRest = rightCurve.getLength() - curr.radius - (next ? next.radius : 0)
+		let rightRest = rightCurve.getLength() - curr.rightRadius - (next ? next.leftRadius : 0)
 		rightRest = Math.max(0, rightRest)
 
 		// If rest length is long, this rate becomes nearly 0.
 		// If rest length is short, this rate becomes nearly 1.
-		let leftArcRate = 1 - leftRest / (leftRest + curr.radius + 0.0001)
-		let rightArcRate = 1 - rightRest / (rightRest + curr.radius + 0.0001)
+		let leftArcRate = 1 - leftRest / (leftRest + curr.leftRadius + 0.0001)
+		let rightArcRate = 1 - rightRest / (rightRest + curr.rightRadius + 0.0001)
 
 		// Choose bigger value.
 		let arcRate = Math.max(leftArcRate, rightArcRate)

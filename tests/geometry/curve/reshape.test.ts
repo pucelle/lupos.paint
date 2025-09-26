@@ -42,7 +42,7 @@ describe('Test CurvePath reshape', () => {
 
 		let reshaped4 = reshapeCurvePath(pathClosed, 1, {}, {smooth: {radius: 1}})
 		expect(reshaped4.result.toSVGPathD()).toEqual(
-			'M0.3536 0.3536C0.1584 0.1584 0.224 0 0.5 0L0.5 0C0.776 0 1 0.224 1 0.5L1 0.5C1 0.776 0.8416 0.8416 0.6464 0.6464L0.3536 0.3536Z'
+			'M0.5 0.5C0.224 0.224 0.224 0 0.5 0L0.5 0C0.776 0 1 0.224 1 0.5L1 0.5C1 0.776 0.776 0.776 0.5 0.5L0.5 0.5Z'
 		)
 
 		// let reshaped5 = reshapeCurvePath(pathClosed, 1, {}, {gradientStroking: {startWidth: 0.2, endWidth: 0.1}})
