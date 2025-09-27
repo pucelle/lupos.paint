@@ -14,6 +14,12 @@ export interface ReshapeStrokeStyleData {
 
 	/** Miter limit rate for `miter` line join type, Default value is `10`. */
 	strokeMiterLimit?: number
+
+	/** Dash array list. */
+	dashArray?: number[]
+
+	/** Dash array offset. */
+	dashOffset?: number
 }
 
 
@@ -91,6 +97,10 @@ export function reshapeCurvePath(
 	let result: CurvePath | CurvePathGroup = continuous
 
 	if (options.gradientStroking) {
+		if (path.closed) {
+			throw new Error(`Can't apply gradient stroking to closed path!`)
+		}
+
 		result = new GradientWidthStroker(
 			path,
 			viewScaling,
@@ -101,6 +111,8 @@ export function reshapeCurvePath(
 			style.strokeLineCap,
 			style.strokeLineJoin,
 			style.strokeMiterLimit,
+			style.dashArray,
+			style.dashOffset
 		).generate()
 	}
 

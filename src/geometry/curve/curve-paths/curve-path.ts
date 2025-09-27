@@ -48,6 +48,25 @@ export class CurvePath {
 		return path
 	}
 
+	/** Make a polygon by points. */
+	static fromPoints(points: Point[], closeIt: boolean = false): CurvePath | null {
+		if (points.length < 2) {
+			return null
+		}
+
+		let path = new CurvePath()
+
+		for (let i = 1; i < points.length; i++) {
+			path.addCurve(new LineCurve(points[i - 1], points[i]))
+		}
+
+		if (closeIt) {
+			path.closePath()
+		}
+
+		return path
+	}
+
 	/** Curve list. */
 	readonly curves: Curve[] = []
 

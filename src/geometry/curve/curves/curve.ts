@@ -1,6 +1,7 @@
 import {Box, Matrix, Point, Vector, IntegralLookup, NumberUtils, ListUtils} from '@pucelle/ff'
 import {CurveData} from '../types'
 import {CubicBezierCurve} from './cubic-bezier'
+import {getCurvatureAdaptiveDivisions} from './helpers/curvature-adaptive'
 
 
 // Reference to:
@@ -11,7 +12,7 @@ import {CubicBezierCurve} from './cubic-bezier'
 export abstract class Curve {
 
 	/** 
-	 * Default division count.
+	 * Default division count, must larger than 1.
 	 * This value is used to make an equivalent-t sampling,
 	 * It affects the precision of equal-length or equal-curvature division.
 	 * 
@@ -251,29 +252,10 @@ export abstract class Curve {
 	 * The bigger the curvature is, the more divisions to make.
 	 */
 	getCurvatureAdaptiveTs(maxPixelDiff: number = 0.25, scaling: number = 1): number[] {
-
-		// Let R be radius, C = 1/R, Arc is Arc Length after subdivision
-		// MaxPixelDiff
-		// 		= R * (1 - cos(Arc / R / 2))
-		// 		≈ R * (Arc / R / 2)^2 / 2
-		// 		= Arc^2 / 8R
-
-		// Normally we want it < MaxPixelDiff, so:
-		// Arc^2 / 8R < MaxPixelDiff
-		// Arc < (MaxPixelDiff * 8R)^0.5
-
-		// TotalArcLength = ∫dArc
-		// 		= ∫(MaxPixelDiff * 8R)^0.5
-		// 		= (8 * MaxPixelDiff)^0.5 * Average(R^0.5) * DivisionCount
-
-		// DivisionCount = TotalArcLength / Average((MaxPixelDiff * 8R)^0.5)
-		// 		≈ TotalArcLength / (MaxPixelDiff * 8)^0.5) * Average(C^0.5)
-		// Which also means when scaling for S, DivisionCount increased by S^0.5
-
 		let curvatureSqrtIntegral = this.generateCurvatureSqrtIntegral(this.lengthDivisions, scaling)
 		let totalCurvatureSqrt = curvatureSqrtIntegral[curvatureSqrtIntegral.length - 1]
 		let averageCurvatureSqrt = totalCurvatureSqrt / curvatureSqrtIntegral.length
-		let newDivisions = this.getLength() / Math.sqrt(8 * maxPixelDiff) * averageCurvatureSqrt * Math.sqrt(scaling)
+		let newDivisions = getCurvatureAdaptiveDivisions(averageCurvatureSqrt, this.getLength(), maxPixelDiff, scaling)
 		
 		newDivisions = Math.max(Math.floor(newDivisions), 1)
 		let ts: number[] = [0]

@@ -32,22 +32,24 @@ export class DashArrayGenerator {
 	}
 
 	*iterate(): Iterable<DashItem> {
-		if (this.itemIndex === 0) {
-			let item = this.produceFirstItem()
-			this.itemIndex++
+		while (true) {
+			if (this.itemIndex === 0) {
+				let item = this.produceFirstItem()
+				this.itemIndex++
 
-			return item
-		}
-		else {
-			let empty = this.dashArray[(this.dashIndex + 1) % this.dashArray.length]
-			let solid = this.dashArray[(this.dashIndex + 2) % this.dashArray.length]
+				yield item
+			}
+			else {
+				let empty = this.dashArray[(this.dashIndex + 1) % this.dashArray.length]
+				let solid = this.dashArray[(this.dashIndex + 2) % this.dashArray.length]
 
-			this.dashIndex += 2
-			this.itemIndex++
+				this.dashIndex += 2
+				this.itemIndex++
 
-			return {
-				empty,
-				solid,
+				yield {
+					empty,
+					solid,
+				}
 			}
 		}
 	}

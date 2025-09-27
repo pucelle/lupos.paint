@@ -1,55 +1,53 @@
 import {LineIntersection, Point, RadialLine, Vector} from '@pucelle/ff'
 
 
+interface LineSegmentsConnectResult {
+	radial1: RadialLine
+	radial2: RadialLine
+	indexRange1: [number, number] | null
+	indexRange2: [number, number] | null
+	point: Point
+	outerIntersected: boolean
+}
+
+
 /** 
  * Have two line segments, make them connect from tail to head.
  * This is a progressive optimality algorithm, complexity is O(m+n),
  * not global intersection query.
+ * Will modify both segments.
  */
-export function connectTwoLineSegments(segments1: Point[], segments2: Point[]) {
+export function connectTwoLineSegments(segments1: Point[], segments2: Point[]): LineSegmentsConnectResult | null {
 	let radial1 = makeRadial(segments1, segments1.length - 1, 1)
 	let radial2 = makeRadial(segments2, 0, -1)
-
-	// Intersected.
 	let intersection = radial1.intersect(radial2)
-	if (intersection && intersection.intersected) {
-		return {
-			list1: segments1,
-			list2: segments2,
-			point: intersection.point,
-		}
-	}
-
-	// parallel.
+	
+	// Parallel.
 	if (!intersection) {
+		return null
+	}
+
+	// Have intersected after extended both.
+	if (intersection.intersected) {
 		return {
-			list1: segments1,
-			list2: segments2,
-			point: null,
+			radial1,
+			radial2,
+			indexRange1: null,
+			indexRange2: null,
+			point: intersection.point,
+			outerIntersected: true,
 		}
 	}
 
-	let {index1, index2, point: intersectedPoint} = progressiveQueryIntersection(segments1, segments2, radial1, radial2, intersection)
-	if (intersectedPoint) {
-		return {
-			list1: segments1.slice(0, index1 + 1),
-			list2: segments2.slice(index2),
-			point: intersectedPoint,
-		}
-	}
-	else {
-		return {
-			list1: segments1.slice(0, index1 + 1),
-			list2: segments2.slice(index2),
-			point: null,
-		}
-	}
+	// Have intersection, but need to shrink.
+	return progressiveQueryIntersection(segments1, segments2, radial1, radial2, intersection)
 }
 
 
 /** 
  * Make radial line from point at index, and it's neighbor.
- * direction decided the vector direction, `-1` means from lower to upper .
+ * direction decided the vector direction, `-1` means from lower to upper.
+ * Radial vector has been normalized.
  */
 export function makeRadial(points: Point[], index: number, direction: 1 | -1): RadialLine {
 	let tangent = makeNormalTangent(points, index, direction)
@@ -98,32 +96,22 @@ function progressiveQueryIntersection(
 	radial1: RadialLine,
 	radial2: RadialLine,
 	intersection: LineIntersection
-) {
+): LineSegmentsConnectResult {
 	let index1 = segments1.length - 1
 	let index2 = 0
-	let intersectedPoint: Point | null = null
+	let intersectedPoint = intersection.point
 
 	while (true) {
 
 		// Move first backward.
-		if (intersection.miu < intersection.niu) {
+		if (intersection.miu < 0) {
 			index1--
-
-			if (index1 === 0) {
-				break
-			}
-
 			radial1 = makeRadial(segments1, index1, 1)
 		}
 
 		// Move second forward.
-		else {
+		if (intersection.niu < 0) {
 			index2++
-
-			if (index2 === segments2.length - 1) {
-				break
-			}
-
 			radial2 = makeRadial(segments2, index2, -1)
 		}
 
@@ -142,50 +130,15 @@ function progressiveQueryIntersection(
 		intersection = nextIntersection
 	}
 
+	let indexRange1: [number, number] | null = index1 < segments1.length - 2 ? [0, index1 + 2] : null
+	let indexRange2: [number, number] | null = index2 > 1 ? [0, index2 - 1] : null
+
 	return {
-		index1,
-		index2,
+		radial1,
+		radial2,
+		indexRange1,
+		indexRange2,
 		point: intersectedPoint,
+		outerIntersected: false,
 	}
-}
-
-
-/**
- * Because of not enough curvature radius,
- * line segments may intersect with itself.
- * Here we tie these points into one by removing the intersected part.
- */
-export function tieEdgeMessesKnot(sidePoints: Point[], centralPoints: Point[]): Point[] {
-	let startCropIndex = getTieEdgeMessesKnotIndex(sidePoints, centralPoints, 1)
-	let endCropIndex = getTieEdgeMessesKnotIndex(sidePoints, centralPoints, -1)
-
-	if (startCropIndex === 0 && endCropIndex === 0) {
-		return sidePoints
-	}
-	else {
-		return sidePoints.slice(startCropIndex, -endCropIndex)
-	}
-}
-
-
-/** The result index is `0` if not cropping. */
-function getTieEdgeMessesKnotIndex(sidePoints: Point[], centralPoints: Point[], direction: 1 | -1): number {
-	let cropIndex = 0
-
-	for (let i = 0; i < sidePoints.length; i++) {
-		let index = direction === 1 ? i : sidePoints.length - 1 - i
-		let sideTangent = makeNormalTangent(sidePoints, index, direction)
-		let tangent = makeNormalTangent(centralPoints, index, direction)
-		
-		// Two tangents have different direction.
-		if (sideTangent.dot(tangent) < 0) {
-			cropIndex = i + 1
-			break
-		}
-		else {
-			break
-		}
-	}
-
-	return cropIndex
 }

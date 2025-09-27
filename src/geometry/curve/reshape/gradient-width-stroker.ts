@@ -1,9 +1,10 @@
 import {MathUtils, Point, Vector} from '@pucelle/ff'
 import {CurvePath, CurvePathGroup} from '../curve-paths'
-import {LineCurve, ArcCurve, Curve} from '../curves'
+import {LineCurve, Curve} from '../curves'
 import {DashArrayGenerator} from './helpers/dash-array'
-import {calcMiterLineJoinBevelPoints, calcRoundLineJoinRadius} from './helpers/line-join'
-import {connectTwoLineSegments, makeRadial, tieEdgeMessesKnot} from './helpers/line-segments'
+import {calcMiterLineJoinBevelPoints, calcRoundLineJoinBezierCurve} from './helpers/line-join'
+import {connectTwoLineSegments, makeRadial} from './helpers/line-segments'
+import {calcRoundLineCapBezierCurves} from './helpers/line-cap'
 
 
 /** When dash array set, cut to several parts. */
@@ -14,8 +15,8 @@ interface DashPart {
 
 
 /** 
- * Make a filled path from a curve path.
- * Some parts of it have gradient stroke width.
+ * Make a filled path from a curve path stroking,
+ * which can stroke by gradient stroking widths.
  */
 export class GradientWidthStroker {
 
@@ -103,7 +104,7 @@ export class GradientWidthStroker {
 		return MathUtils.mix(this.startWidth, this.endWidth,  Math.pow(rate, this.power))
 	}
 
-	/** Generate a new filled path, or a dashed path. */
+	/** Generate a new filled curve path, or a dashed curve path group. */
 	generate(): CurvePath | CurvePathGroup {
 		if (this.dashArrayGenerator) {
 			return this.generateDashParts()
@@ -131,19 +132,20 @@ export class GradientWidthStroker {
 			let strokeWidth = this.getStrokeWidthAtLength(currentLength)
 			let startLength = currentLength + dashItem.empty * strokeWidth
 			let endLength = currentLength + (dashItem.empty + dashItem.solid) * strokeWidth
-			let startT = startLength / totalLength
+			let startU = startLength / totalLength
 
-			if (startT >= 1) {
-				continue
+			if (startU >= 1) {
+				break
 			}
 
-			let endT = Math.min(endLength / totalLength, 1)
+			let endU = Math.min(endLength / totalLength, 1)
+			let startT = this.curvePath.mapU2T(startU)
+			let endT = this.curvePath.mapU2T(endU)
 			let curvePart = this.curvePath.partOf(startT, endT)
-
-			// Make the part Low sampling.
-			for (let curve of curvePart.curves) {
-				curve.lengthDivisions = 1
-			}
+	
+			// Maybe here we should make the parts have lower lengthDivisions.
+			// This can be achieved by testing local index and generating parameter t.
+			// By multiply 12 and striped t, then floor or ceil can get a reduced lengthDivisions.
 
 			parts.push({
 				path: curvePart,
@@ -151,7 +153,7 @@ export class GradientWidthStroker {
 			})
 
 			if (endT >= 1) {
-				continue
+				break
 			}
 
 			currentLength = endLength
@@ -166,20 +168,20 @@ export class GradientWidthStroker {
 		let {leftList, rightList} = this.doCurvePathSampling(path, pathStartLength)
 
 		// Connect left.
-		for (let i = 0; i < leftList.length - 1; i++) {
-			this.connectSegments(leftList[i], leftList[i + 1], curves)
+		for (let i = 0; i < leftList.length; i++) {
+			this.connectSegments(leftList[i], i === leftList.length - 1 ? undefined : leftList[i + 1], curves)
 		}
 
 		// Connect left end to right start.
-		this.connectSides(leftList[leftList.length - 1], rightList[0], curves, false)
+		this.connectSides(leftList[leftList.length - 1], rightList[0], curves)
 
 		// Connect right.
-		for (let i = 0; i < rightList.length - 1; i++) {
-			this.connectSegments(rightList[i], rightList[i + 1], curves)
+		for (let i = 0; i < rightList.length; i++) {
+			this.connectSegments(rightList[i], i === rightList.length - 1 ? undefined : rightList[i + 1], curves)
 		}
 
 		// Connect right end to left start.
-		this.connectSides(leftList[leftList.length - 1], rightList[0], curves, true)
+		this.connectSides(rightList[rightList.length - 1], leftList[0], curves)
 
 		return CurvePath.fromCurves(curves, true)!
 	}
@@ -202,6 +204,8 @@ export class GradientWidthStroker {
 			currentLength += curve.getLength()
 		}
 
+		rightList.reverse()
+
 		return {
 			leftList,
 			rightList,
@@ -210,7 +214,6 @@ export class GradientWidthStroker {
 
 	/** Sampling one curve points, and make left and right stroke curve points. */
 	private doCurveSampling(curve: Curve, startLength: number): {left: Point[], right: Point[]} {
-		let points: Point[] = []
 		let left: Point[] = []
 		let right: Point[] = []
 		let ts: number[] = curve.getCurvatureAdaptiveTs(undefined, this.viewScaling)
@@ -226,17 +229,15 @@ export class GradientWidthStroker {
 			
 			normal.multiplyScalarSelf(-halfWidth)
 
+			// Left points connect in anti-clockwise order.
 			let leftPoint = point.add(normal)
 			let rightPoint = point.add(normal.negativeSelf())
 
 			left.push(leftPoint)
 			right.push(rightPoint)
-			points.push(point)
 		}
 
-		// Removes self-intersections.
-		tieEdgeMessesKnot(left, points)
-		tieEdgeMessesKnot(right, points)
+		right.reverse()
 
 		return {
 			left,
@@ -245,64 +246,74 @@ export class GradientWidthStroker {
 	}
 
 	/** Connect two adjacent line segments. */
-	private connectSegments(segments1: Point[], segments2: Point[], curves: Curve[]) {
-		let {list1, list2, point} = connectTwoLineSegments(segments1, segments2)
-
-		for (let i = 0; i < list1.length - 1; i++) {
-			curves.push(new LineCurve(list1[i], list1[i+1]))
+	private connectSegments(segments1: Point[], segments2: Point[] | undefined, curves: Curve[]) {
+		if (!segments2) {
+			for (let i = 0; i < segments1.length - 1; i++) {
+				curves.push(new LineCurve(segments1[i], segments1[i+1]))
+			}
+			return
 		}
 
-		if (point) {
-			if (this.lineJoin === 'round') {
-				let radial1 = makeRadial(list1, list1.length - 1, 1)
-				let radial2 = makeRadial(list2, 0, -1)
-				let radius = calcRoundLineJoinRadius(radial1, radial2)
-
-				// Always clockwise.
-				let rotationFlag: 0 | 1 = 1 // radial1.vector.getRotateFlagFrom(radial2.vector)
-
-				curves.push(new ArcCurve(radial1.point, radial2.point, radius, 0, rotationFlag))
+		let connectResult = connectTwoLineSegments(segments1, segments2)
+		if (connectResult) {
+			if (connectResult.indexRange1) {
+				segments1 = segments1.slice(connectResult.indexRange1[0], connectResult.indexRange1[1])
 			}
 
-			else if (this.lineJoin === 'bevel') {
-				curves.push(new LineCurve(list1[list1.length - 1], list2[0]))
-			}
-
-			else if (this.lineJoin === 'miter') {
-				let radial1 = makeRadial(list1, list1.length - 1, 1)
-				let radial2 = makeRadial(list2, 0, -1)
-				let miterLimit = this.miterLimit
-				let bevelPoints = calcMiterLineJoinBevelPoints(radial1, radial2, miterLimit)
-
-				if (bevelPoints) {
-					curves.push(new LineCurve(list1[list1.length - 1], bevelPoints[0]))
-					curves.push(new LineCurve(bevelPoints[0], bevelPoints[1]))
-					curves.push(new LineCurve(bevelPoints[1], list2[0]))
-				}
-				else {
-					curves.push(new LineCurve(list1[list1.length - 1], point))
-					curves.push(new LineCurve(point, list2[0]))
-				}
+			if (connectResult.indexRange2) {
+				segments2 = segments2.slice(connectResult.indexRange2[0], connectResult.indexRange2[1])
 			}
 		}
 
-		for (let i = 0; i < list2.length - 1; i++) {
-			curves.push(new LineCurve(list2[i], list2[i+1]))
+		// Not push last line.
+		for (let i = 0; i < segments1.length - 2; i++) {
+			curves.push(new LineCurve(segments1[i], segments1[i+1]))
+		}
+
+		if (connectResult) {
+			if (connectResult.outerIntersected) {
+				if (this.lineJoin === 'round') {
+					let radial1 = connectResult.radial1
+					let radial2 = connectResult.radial2
+					curves.push(new LineCurve(segments1[segments1.length - 2], segments1[segments1.length - 1]))
+					curves.push(calcRoundLineJoinBezierCurve(radial1, radial2))
+				}
+
+				else if (this.lineJoin === 'bevel') {
+					curves.push(new LineCurve(segments1[segments1.length - 1], segments2[0]))
+				}
+
+				else if (this.lineJoin === 'miter') {
+					let radial1 = connectResult.radial1
+					let radial2 = connectResult.radial2
+					let miterLimit = this.miterLimit
+					let bevelPoints = calcMiterLineJoinBevelPoints(radial1, radial2, miterLimit)
+
+					if (bevelPoints) {
+						curves.push(new LineCurve(segments1[segments1.length - 2], bevelPoints[0]))
+						curves.push(new LineCurve(bevelPoints[0], bevelPoints[1]))
+						segments2[0] = bevelPoints[1]
+					}
+					else {
+						curves.push(new LineCurve(segments1[segments1.length - 2], connectResult.point))
+						segments2[0] = connectResult.point
+					}
+				}
+			}
+			else {
+				curves.push(new LineCurve(segments1[segments1.length - 2], connectResult.point))
+				segments2[0] = connectResult.point
+			}
 		}
 	}
 
 	/** Connect left and right sides in clockwise. */
-	private connectSides(segments1: Point[], segments2: Point[], curves: Curve[], atStart: boolean) {
+	private connectSides(segments1: Point[], segments2: Point[], curves: Curve[]) {
 		if (this.lineCap === 'round') {
-			curves.push(
-				new ArcCurve(
-					segments1[segments1.length - 1],
-					segments2[0],
-					atStart ? this.startWidth / 2 : this.endWidth / 2,
-					0,
-					1
-				)
-			)
+			let radial1 = makeRadial(segments1, segments1.length - 1, 1)
+			let radial2 = makeRadial(segments2, 0, -1)
+
+			curves.push(...calcRoundLineCapBezierCurves(radial1, radial2))
 		}
 		else if (this.lineCap === 'square') {
 			let radial1 = makeRadial(segments1, segments1.length - 1, 1)

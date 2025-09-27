@@ -37,7 +37,7 @@ export class CurvePathSmoother {
 		this.cornerIndices = cornerIndices
 	}
 
-	/** Do modulo on index, convert it to a index in range. */
+	/** Do modulo on index, convert it to an index in range. */
 	private normalizeIndex(index: number) {
 		return NumberUtils.euclideanModulo(index, this.curvePath.curves.length)
 	}
@@ -66,7 +66,7 @@ export class CurvePathSmoother {
 		return CurvePath.fromCurves(curves, this.curvePath.closed)!
 	}
 
-	/** Smooth curve at index, push results into `curves`. */
+	/** Smooth curve at specified index, push results into `curves`. */
 	private fillSmoothCurveAt(index: number, cornerList: (SmoothCorner | null)[], curves: Curve[]) {
 		let curve = this.curvePath.curves[index]
 		let left = cornerList[index]
@@ -98,7 +98,7 @@ export class CurvePathSmoother {
 		}
 	}
 
-	/** Generate corner smooth result at index. */
+	/** Generate corner smooth result at specified index. */
 	private generateBaseSmoothCorner(index: number): SmoothCorner | null {
 		let modIndex = this.normalizeIndex(index)
 		if (!this.shouldSmoothCornerAt(modIndex)) {
@@ -151,7 +151,7 @@ export class CurvePathSmoother {
 		}
 	}
 
-	/** Whether should smooth corner at index. */
+	/** Whether should smooth corner at specified index. */
 	private shouldSmoothCornerAt(modIndex: number): boolean {
 		let closed = this.curvePath.closed
 
