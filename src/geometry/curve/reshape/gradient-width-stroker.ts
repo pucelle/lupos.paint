@@ -143,9 +143,17 @@ export class GradientWidthStroker {
 			let endT = this.curvePath.mapU2T(endU)
 			let curvePart = this.curvePath.partOf(startT, endT)
 	
-			// Maybe here we should make the parts have lower lengthDivisions.
+			// Here we make the parts have lower lengthDivisions.
 			// This can be achieved by testing local index and generating parameter t.
-			// By multiply 12 and striped t, then floor or ceil can get a reduced lengthDivisions.
+			// By multiply 12 and striped t, then ceil can get a reduced lengthDivisions.
+			let startIT = this.curvePath.mapGlobalT2Local(startT)
+			let endIT = this.curvePath.mapGlobalT2Local(endT)
+			let strippedT = (endIT.i - startIT.i - 1) + endIT.t + (1 - startIT.t)
+			let lengthDivisions = Math.min(Math.ceil(strippedT * 12), 12)
+
+			for (let curve of curvePart.curves) {
+				curve.lengthDivisions = lengthDivisions
+			}
 
 			parts.push({
 				path: curvePart,
