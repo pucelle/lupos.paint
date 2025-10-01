@@ -30,10 +30,10 @@ export class Matrix2 {
 	/** Data array in column-major order. */
 	data!: number[]
 
-	/** Data arguments in row-major order. */
+	/** Data arguments in column-major order. */
 	constructor(
-		n11: number = 1, n12: number = 0,
-		n21: number = 0, n22: number = 1
+		n11: number = 1, n21: number = 0,
+		n12: number = 0, n22: number = 1
 	) {
 		this.set(
 			n11, n12,
@@ -41,10 +41,10 @@ export class Matrix2 {
 		)
 	}
 
-	/** Set data array, based on row-major order. */
+	/** Set data array, based on column-major order. */
 	protected set(
-		n11: number, n12: number,
-		n21: number, n22: number,
+		n11: number, n21: number,
+		n12: number, n22: number,
 	) {
 		this.data = [
 			n11, n21,
@@ -87,7 +87,7 @@ export class Matrix2 {
 		return this
 	}
 
-	/** Returns data in row-major order. */
+	/** Returns data in column-major order. */
 	flatten(): [number, number, number, number] {
 		let [
 			n11, n21,
@@ -95,8 +95,8 @@ export class Matrix2 {
 		] = this.data
 
 		return [
-			n11, n12,
-			n21, n22,
+			n11, n21,
+			n12, n22,
 		]
 	}
 

@@ -4,8 +4,8 @@ import {CurvePath, LineCurve, reshapeCurvePath} from '../../../src/geometry'
 
 // function expectCloseTo(o: any, compare: any) {
 // 	if (Array.isArray(o)) {
-// 		for (let i = 0; i < o.length; i++) {
-// 			expectCloseTo(o[i], compare[i])
+// 		for (let i = 0; i < compare.length; i++) {
+// 			expectCloseTo(o[i], compare[i] as any)
 // 		}
 // 	}
 // 	else if (typeof o === 'object') {

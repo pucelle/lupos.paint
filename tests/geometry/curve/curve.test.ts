@@ -4,8 +4,8 @@ import {ArcCurve, CubicBezierCurve, EllipseCurve, LineCurve, QuadraticBezierCurv
 
 function expectCloseTo(o: any, compare: any) {
 	if (Array.isArray(o)) {
-		for (let i = 0; i < o.length; i++) {
-			expectCloseTo(o[i], compare[i])
+		for (let i = 0; i < compare.length; i++) {
+			expectCloseTo(o[i], compare[i] as any)
 		}
 	}
 	else if (typeof o === 'object') {
@@ -20,7 +20,6 @@ function expectCloseTo(o: any, compare: any) {
 
 
 describe('Test Curve', () => {
-	
 	
 	// Arc new cost: 100ns
 	test('Arc', () => {

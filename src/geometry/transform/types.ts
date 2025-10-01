@@ -3,35 +3,32 @@
  * Compare with a matrix, use this can easily adjust each parameter separately.
  * The transform order is `Scaling -> Rotation -> SkewingY -> Translation`.
  */
-export interface TransformData {
-
-	/** Where is the anchor point located in world coordinate system. */
-	position?: [number, number]
-
-	/** Where is the anchor point, in current object coordinate system. */
-	origin?: [number, number]
-
-	/** Scaling rate, 1 based. */
-	scale?: [number, number]
-
-	/** Rotation angle in clockwise direction. */
-	rotation?: number
+export interface TransformComponentData {
 
 	/** 
-	 * Skew axis angle that skew based on,
+	 * Where is the origin, in current object coordinate system.
+	 * By default it's the left-top position, which is (0, 0).
+	 */
+	origin?: [number, number]
+
+	/** Translate part. */
+	translate?: [number, number]
+
+	/** Scaling rate of x and y axises based on origin. */
+	scale?: [number, number]
+
+	/** Rotation angle in clockwise direction based on origin. */
+	rotate?: number
+
+	/** 
+	 * Skew axis angle that skew based,
 	 * `0` means the y axis direction, in clockwise direction.
 	 */
 	skewAxis?: number
 
 	/** 
 	 * Skew angle.
-	 * If `skewAxis` is `0`, skew will cause pixels keep x value and move in y direction based on how x is.
+	 * If `skewAxis` is `0`, skew will cause pixels persist x property and move in y direction.
 	 */
 	skew?: number
-
-	/** 
-	 * Opacity value, 0~1.
-	 * You may create a 0-opacity layer to accept mouse events but keeps invisible.
-	 */
-	opacity?: number
 }
